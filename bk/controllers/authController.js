@@ -30,7 +30,13 @@ async function register(req, res) {
     ]);
 
     // Create a JWT token for the new user
-    const token = jwt.sign({ username, mobile_number, role }, process.env.JWT_SECRET, { expiresIn: '8h' }, { data : req.body});
+    // const token = await jwt.sign({ username, mobile_number, role }, process.env.JWT_SECRET, { expiresIn: '8h' }, { data : req.body});
+
+    const token = jwt.sign(
+      { username, mobile_number, role },
+      process.env.JWT_SECRET,
+      { expiresIn: '8h' }
+    );
 
     res.status(201).json({ message: 'User registered successfully', token, success : true });
   } catch (error) {
@@ -123,19 +129,92 @@ async function register(req, res) {
 //   }
 // }
 
+// async function login(req, res) {
+//   const { username, password, mobile_number } = req.body;
+
+//   // Ensure at least one of username or mobile number is provided
+//   if (!username && !mobile_number) {
+//     return res.status(400).json({ message: 'Username or mobile number is required', success : false });
+//   }
+//   if (!password) {
+//     return res.status(400).json({ message: 'Password is required', success : false });
+//   }
+//   // if (!organization) {
+//   //   return res.status(400).json({ message: 'Organization is required' });
+//   // }
+
+//   try {
+//     let query = '';
+//     let params = [];
+    
+//     // Determine if we are using username or mobile_number to search for the user
+//     if (username) {
+//       query = 'SELECT * FROM users WHERE username ?';
+//       params = [username];
+//     } else {
+//       query = 'SELECT * FROM users WHERE mobile_number ?';
+//       params = [mobile_number];
+//     }
+
+    
+//     console.log(query, params)
+//     // Query database to find user by username or mobile number
+//     const [rows] = await db.execute(query, params);
+//     console.log(rows.length)
+//     // If user is not found
+//     if (rows.length === 0) {
+//       return res.status(400).json({ message: 'Invalid credentials', success : false });
+//     }
+
+//     // Compare the provided password with the hashed password stored in the database
+//     const isMatch = await bcrypt.compare(password, rows[0].password);
+
+//     if (!isMatch) {
+//       return res.status(400).json({ message: 'Invalid credentials', success : false });
+//     }
+
+//     // Generate JWT token including user id, username, mobile number, and role
+//     const token = jwt.sign(
+//       {
+//         userId: rows[0].id,
+//         username: rows[0].username,
+//         mobile_number: rows[0].mobile_number,
+//         role: rows[0].role // Include role in the token
+//       },
+//       process.env.JWT_SECRET,
+//       { expiresIn: '8h' }
+//     );
+
+//     // Send response with token
+//     res.status(200).json({
+//       token,
+//       success : true,
+//       user: {
+//         userId: rows[0].id,
+//         username: rows[0].username,
+//         mobile_number: rows[0].mobile_number,
+//         role: rows[0].role,
+//         organization: rows[0].organization // If you want to include organization in the response
+//       }
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ message: 'Server error', success : false });
+//   }
+// }
+
+
 async function login(req, res) {
   const { username, password, mobile_number } = req.body;
 
   // Ensure at least one of username or mobile number is provided
   if (!username && !mobile_number) {
-    return res.status(400).json({ message: 'Username or mobile number is required', success : false });
+    return res.status(400).json({ message: 'Username or mobile number is required', success: false });
   }
+
   if (!password) {
-    return res.status(400).json({ message: 'Password is required', success : false });
+    return res.status(400).json({ message: 'Password is required', success: false });
   }
-  // if (!organization) {
-  //   return res.status(400).json({ message: 'Organization is required' });
-  // }
 
   try {
     let query = '';
@@ -143,26 +222,29 @@ async function login(req, res) {
     
     // Determine if we are using username or mobile_number to search for the user
     if (username) {
-      query = 'SELECT * FROM users WHERE username';
+      query = 'SELECT * FROM users WHERE username = ?';  // Corrected query
       params = [username];
-    } else {
-      query = 'SELECT * FROM users WHERE mobile_number';
+    } else if (mobile_number) {
+      query = 'SELECT * FROM users WHERE mobile_number = ?';  // Corrected query
       params = [mobile_number];
     }
 
+    console.log(query, params);
+
     // Query database to find user by username or mobile number
     const [rows] = await db.execute(query, params);
+    console.log(rows.length);
 
     // If user is not found
     if (rows.length === 0) {
-      return res.status(400).json({ message: 'Invalid credentials', success : false });
+      return res.status(400).json({ message: 'Invalid credentials', success: false });
     }
 
     // Compare the provided password with the hashed password stored in the database
     const isMatch = await bcrypt.compare(password, rows[0].password);
 
     if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials', success : false });
+      return res.status(400).json({ message: 'Invalid credentials', success: false });
     }
 
     // Generate JWT token including user id, username, mobile number, and role
@@ -174,13 +256,13 @@ async function login(req, res) {
         role: rows[0].role // Include role in the token
       },
       process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: '8h' }
     );
 
     // Send response with token
     res.status(200).json({
       token,
-      success : true,
+      success: true,
       user: {
         userId: rows[0].id,
         username: rows[0].username,
@@ -191,9 +273,10 @@ async function login(req, res) {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error', success : false });
+    res.status(500).json({ message: 'Server error', success: false });
   }
 }
+
 
 
 

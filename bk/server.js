@@ -7,6 +7,7 @@ const orgRoutes = require('./routes/orgRoutes');
 const userRoutes = require('./routes/userRoutes');
 const roleRoutes = require('./routes/roleRoutes');
 const branchRoutes = require('./routes/branchRoutes');
+const confRoutes = require('./routes/confRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -16,12 +17,17 @@ const app = express();
 // Middleware
 app.use(bodyParser.json());
 app.use(cors());
+app.use(express.json());
+
+// app.use(bodyParser.json());
+app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/auth', authRoutes);
 app.use('/organizations', orgRoutes);
 app.use('/users', userRoutes);
 app.use('/roles', roleRoutes);
 app.use('/branch', branchRoutes);
+app.use('/conf', confRoutes);
 
 // Starting the server
 const PORT = process.env.PORT || 5000;

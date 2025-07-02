@@ -1,27 +1,67 @@
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 
-async function createDairy(req, res) {
-    const { name, branchname, ownername, days, villagename, address, password } = req.body;
 
-    if (!name || !password || !createdby) {
+function generateUniqueTimeNumber() {
+    return Date.now();
+}
+
+async function createDairy(req, res) {
+    const { name, branchname, ownername, days, villagename, address, password, mobile_number, role } = req.body;
+    let mgrname = generateUniqueTimeNumber()+branchname;
+     let rolemgr = 'Dairymgr'
+    if (!name || !password || !branchname || !ownername || !mobile_number) {
         return res.status(400).json({ message: "All fields are required" });
     }
     const hashedPassword = await bcrypt.hash(password, 10);
+   
     try {
 
-        await db.execute('INSERT INTO users (username, password, mobile_number, role) VALUES (?, ?, ?, ?, ?)', [
-            ownername, hashedPassword, mobile_number, role
-          ]);
+        const [existingUser] = await db.execute('SELECT * FROM users WHERE mobile_number = ?', [mobile_number]);
 
-        const [result] = await db.execute(
-        'INSERT INTO dairy (name, branchname, ownername, days, villagename, address, password, createdby) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [name, branchname, ownername, days, villagename, address, hashedPassword, createdby]
-        );
+        console.log(existingUser)
 
+        if (existingUser.length > 0) {
 
+            const dairyresult = await db.execute(
+                'INSERT INTO dairy (name, branchname, ownername, days, villagename, address, password, createdby) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                [name, branchname, ownername, days, villagename, address, hashedPassword, existingUser[0]['id']]
+            );
+
+            const result1 =  await db.execute('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', [
+                mgrname, hashedPassword, rolemgr, 
+            ]);
+
+            const dairyuser =  await db.execute('INSERT INTO userDairy (user_id, dairy_id, role) VALUES (?, ?, ?)', [
+                result1[0]['id'], dairyresult[0]['userdairy_id'], rolemgr, 
+            ]);
+
+        }else{
+
+            
+            const result =  await db.execute('INSERT INTO users (username, password, mobile_number, role) VALUES (?, ?, ?, ?)', [
+                ownername, hashedPassword, mobile_number, role, 
+            ]);
+
+            const result1 =  await db.execute('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', [
+                mgrname, hashedPassword, rolemgr, 
+            ]);
+
+            
+            const dairyresult = await db.execute(
+                'INSERT INTO dairy (name, branchname, ownername, days, villagename, address, password, createdby) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                [name, branchname, ownername, days, villagename, address, hashedPassword, result[0]['insertId']]
+            );
+
+            const dairyuser =  await db.execute('INSERT INTO userDairy (user_id, dairy_id, role) VALUES (?, ?, ?)', [
+                result1[0]['id'], dairyresult[0]['userdairy_id'], rolemgr, 
+            ]);
+
+        }
 
         res.status(201).json({ message: 'Dairy record created successfully' });
+
+        
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });

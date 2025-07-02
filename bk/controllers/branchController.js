@@ -59,7 +59,7 @@ async function createDairy(req, res) {
 
         }
 
-        res.status(201).json({ message: 'Dairy record created successfully' });
+        res.status(201).json({ message: 'Dairy record created successfully', data : dairyuser });
 
         
     } catch (error) {

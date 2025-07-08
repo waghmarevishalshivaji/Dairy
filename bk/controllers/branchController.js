@@ -8,7 +8,9 @@ function generateUniqueTimeNumber() {
 
 async function createDairy(req, res) {
     const { name, branchname, ownername, days, villagename, address, password, mobile_number, role } = req.body;
-    let mgrname = branchname_+generateUniqueTimeNumber();
+
+    let mgrname = branchname+"_"+generateUniqueTimeNumber();
+    
      let rolemgr = 'Dairymgr'
     if (!name || !password || !branchname || !ownername || !mobile_number) {
         return res.status(400).json({ message: "All fields are required" });

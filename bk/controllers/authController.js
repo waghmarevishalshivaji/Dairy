@@ -199,7 +199,10 @@ async function verifyOTP(req, res) {
       // Query database to find user by mobile number and role
       const [userrows] = await db.execute(query, params);
       if (userrows.length === 1) {
-        const [rowsdairy] = await db.execute('SELECT * FROM dairy WHERE create_by = ?', [userrows[0]['create_by']]);
+
+        console.log(userrows)
+
+        const [rowsdairy] = await db.execute('SELECT * FROM dairy WHERE createdby = ?', [userrows[0]['id']]);
         return res.status(200).json({ message: 'List of dairy', success: true, data : rowsdairy });
       }
     }

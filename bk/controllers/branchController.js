@@ -8,7 +8,7 @@ function generateUniqueTimeNumber() {
 
 async function createDairy(req, res) {
     const { name, branchname, ownername, days, villagename, address, password, mobile_number, role } = req.body;
-    let mgrname = generateUniqueTimeNumber()+branchname;
+    let mgrname = branchname_+generateUniqueTimeNumber();
      let rolemgr = 'Dairymgr'
     if (!name || !password || !branchname || !ownername || !mobile_number) {
         return res.status(400).json({ message: "All fields are required" });
@@ -37,7 +37,7 @@ async function createDairy(req, res) {
                 result1[0]['insertId'], dairyresult[0]['insertId'], rolemgr, 
             ]);
 
-            const [userdata] = await db.execute('SELECT * FROM users WHERE id = ?', [dairyuser[0]['insertId']]);
+            const [userdata] = await db.execute('SELECT * FROM users WHERE id = ?', [result1[0]['insertId']]);
 
             userdata.pass = password
 
@@ -64,7 +64,7 @@ async function createDairy(req, res) {
                 result1[0]['insertId'], dairyresult[0]['insertId'], rolemgr, 
             ]);
 
-            const [userdata] = await db.execute('SELECT * FROM users WHERE id = ?', [dairyuser[0]['insertId']]);
+            const [userdata] = await db.execute('SELECT * FROM users WHERE id = ?', [result1[0]['insertId']]);
             userdata.pass = password
             res.status(201).json({ message: 'Dairy record created successfully', data : userdata });
 

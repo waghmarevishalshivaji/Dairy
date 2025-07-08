@@ -39,6 +39,8 @@ async function createDairy(req, res) {
 
             const [userdata] = await db.execute('SELECT * FROM users WHERE id = ?', [dairyuser[0]['insertId']]);
 
+            userdata.pass = password
+
             res.status(201).json({ message: 'Dairy record created successfully', data : userdata });
 
         }else{
@@ -63,7 +65,7 @@ async function createDairy(req, res) {
             ]);
 
             const [userdata] = await db.execute('SELECT * FROM users WHERE id = ?', [dairyuser[0]['insertId']]);
-
+            userdata.pass = password
             res.status(201).json({ message: 'Dairy record created successfully', data : userdata });
 
         }

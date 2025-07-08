@@ -32,9 +32,14 @@ async function createDairy(req, res) {
                 mgrname, hashedPassword, rolemgr, 
             ]);
 
+           
             const dairyuser =  await db.execute('INSERT INTO userDairy (user_id, dairy_id, role) VALUES (?, ?, ?)', [
-                result1[0]['id'], dairyresult[0]['userdairy_id'], rolemgr, 
+                result1[0]['insertId'], dairyresult[0]['insertId'], rolemgr, 
             ]);
+
+            const [userdata] = await db.execute('SELECT * FROM users WHERE id = ?', [dairyuser[0]['insertId']]);
+
+            res.status(201).json({ message: 'Dairy record created successfully', data : userdata });
 
         }else{
 
@@ -54,12 +59,18 @@ async function createDairy(req, res) {
             );
 
             const dairyuser =  await db.execute('INSERT INTO userDairy (user_id, dairy_id, role) VALUES (?, ?, ?)', [
-                result1[0]['id'], dairyresult[0]['userdairy_id'], rolemgr, 
+                result1[0]['insertId'], dairyresult[0]['insertId'], rolemgr, 
             ]);
+
+            const [userdata] = await db.execute('SELECT * FROM users WHERE id = ?', [dairyuser[0]['insertId']]);
+
+            res.status(201).json({ message: 'Dairy record created successfully', data : userdata });
 
         }
 
-        res.status(201).json({ message: 'Dairy record created successfully', data : dairyuser });
+        // console.log(dairyuser)
+
+        
 
         
     } catch (error) {

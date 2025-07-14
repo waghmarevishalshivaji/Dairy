@@ -367,7 +367,7 @@ function generateUniqueTimeNumber() {
 async function registefarmerid(req, res) {
   const { branchname } = req.body;
   let mgrname = branchname+"_"+generateUniqueTimeNumber();
-  res.status(500).json({ message: 'Success', success : true, id : mgrname });
+  res.status(200).json({ message: 'Success', success : true, id : mgrname });
 } 
 
 

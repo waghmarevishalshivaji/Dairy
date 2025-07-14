@@ -3,6 +3,12 @@ const router = express.Router();
 const authController = require('../controllers/authController');
 
 router.post('/register', authController.register);
+
+
+router.post('/registerfarmer', authController.registefarmer);
+
+router.post('/registerfarmerid', authController.registefarmerid);
+
 router.post('/login', authController.login);
 
 // OTP generation route

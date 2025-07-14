@@ -71,11 +71,6 @@ async function createDairy(req, res) {
             res.status(201).json({ message: 'Dairy record created successfully', data : userdata });
 
         }
-
-        // console.log(dairyuser)
-
-        
-
         
     } catch (error) {
         console.error(error);

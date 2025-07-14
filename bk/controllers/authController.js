@@ -319,11 +319,65 @@ async function updateConfirm(req, res) {
 }
 
 
+async function registefarmer(req, res) {
+  const { username, fullName, mobile_number, email, address, milkType, rateChart, panCard, aadhaarCard, bankName, accountNumber, ifscCode } = req.body;
+
+  // Check if all required fields are provided
+  if (!username || !fullName || !mobile_number || !email || !address || !milkType || !rateChart || !panCard || !aadhaarCard || !bankName || !accountNumber || !ifscCode) {
+    return res.status(400).json({ message: 'All fields are required', success : false });
+  }
+
+  try {
+    // Check if the username already exists
+    const [existingUser] = await db.execute('SELECT * FROM users WHERE username = ? OR mobile_number = ?', [username, mobile_number]);
+
+    if (existingUser.length > 0) {
+      return res.status(400).json({ message: 'Username or mobile number already exists', success : false });
+    }
+
+    // Hash the password before storing it in the database
+    // const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Insert the new user into the database
+    await db.execute('INSERT INTO users (username, fullName, mobile_number, email, address, milkType, rateChart, panCard, aadhaarCard, bankName, accountNumber, ifscCode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [
+      username, fullName, mobile_number, email, address, milkType, rateChart, panCard, aadhaarCard, bankName, accountNumber, ifscCode
+    ]);
+
+    // Create a JWT token for the new user
+    // const token = await jwt.sign({ username, mobile_number, role }, process.env.JWT_SECRET, { expiresIn: '8h' }, { data : req.body});
+
+    const token = jwt.sign(
+      { username, mobile_number, role },
+      process.env.JWT_SECRET,
+      { expiresIn: '8h' }
+    );
+
+    res.status(201).json({ message: 'User registered successfully', token, success : true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error', success : false });
+  }
+}
+
+
+function generateUniqueTimeNumber() {
+    return Date.now();
+}
+
+async function registefarmerid(req, res) {
+  const { branchname } = req.body;
+  let mgrname = branchname+"_"+generateUniqueTimeNumber();
+  res.status(500).json({ message: 'Server error', success : true, id : mgrname });
+} 
+
+
 module.exports = {
     generateOTP,
     verifyOTP,
     register,
     resetPassword,
     updateConfirm,
-    login
+    login, 
+    registefarmer,
+    registefarmerid
 };

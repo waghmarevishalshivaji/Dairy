@@ -320,10 +320,10 @@ async function updateConfirm(req, res) {
 
 
 async function registefarmer(req, res) {
-  const { username, fullName, mobile_number, email, address, milkType, rateChart, panCard, aadhaarCard, bankName, accountNumber, ifscCode } = req.body;
+  const { username, fullName, mobile_number, email, address, milkType, rateChart, panCard, aadhaarCard, bankName, accountNumber, ifscCode, role } = req.body;
 
   // Check if all required fields are provided
-  if (!username || !fullName || !mobile_number || !email || !address || !milkType || !rateChart || !panCard || !aadhaarCard || !bankName || !accountNumber || !ifscCode) {
+  if (!username || !fullName || !mobile_number || !email || !address || !milkType || !rateChart || !panCard || !aadhaarCard || !bankName || !accountNumber || !ifscCode || !role) {
     return res.status(400).json({ message: 'All fields are required', success : false });
   }
 
@@ -339,8 +339,8 @@ async function registefarmer(req, res) {
     // const hashedPassword = await bcrypt.hash(password, 10);
 
     // Insert the new user into the database
-    await db.execute('INSERT INTO users (username, fullName, mobile_number, email, address, milkType, rateChart, panCard, aadhaarCard, bankName, accountNumber, ifscCode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [
-      username, fullName, mobile_number, email, address, milkType, rateChart, panCard, aadhaarCard, bankName, accountNumber, ifscCode
+    await db.execute('INSERT INTO users (username, fullName, mobile_number, email, address, milkType, rateChart, panCard, aadhaarCard, bankName, accountNumber, ifscCode, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [
+      username, fullName, mobile_number, email, address, milkType, rateChart, panCard, aadhaarCard, bankName, accountNumber, ifscCode, role
     ]);
 
     // Create a JWT token for the new user
@@ -367,7 +367,7 @@ function generateUniqueTimeNumber() {
 async function registefarmerid(req, res) {
   const { branchname } = req.body;
   let mgrname = branchname+"_"+generateUniqueTimeNumber();
-  res.status(500).json({ message: 'Server error', success : true, id : mgrname });
+  res.status(500).json({ message: 'Success', success : true, id : mgrname });
 } 
 
 

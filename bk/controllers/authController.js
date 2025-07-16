@@ -103,6 +103,31 @@ async function login(req, res) {
       { expiresIn: '8h' }
     );
 
+
+    let dairydata = {}
+    if(rows[0].role == 'Dairymgr'){
+      // dairyquery = 'SELECT * FROM userDairy WHERE user_id = ?';  // Corrected query
+      // dairyparams = [rows[0].user_id];
+      // const [dairyrows] = await db.execute(dairyquery, dairyparams);
+
+      const dairyquery = `
+        SELECT 
+          udairy.*, dairy.*
+        FROM 
+          userDairy as udairy
+        JOIN 
+          dairy as dairy 
+        ON 
+          udairy.dairy_id = dairy.id 
+        WHERE 
+          udairy.user_id = ?`;
+          
+      const dairyparams = [rows[0].id];
+      const [dairyrows] = await db.execute(dairyquery, dairyparams);
+      dairydata.id = dairyrows[0].id
+      dairydata.name = dairyrows[0].name
+    }
+
     // Send response with token
     res.status(200).json({
       token,
@@ -113,7 +138,8 @@ async function login(req, res) {
         mobile_number: rows[0].mobile_number,
         role: rows[0].role,
         organization: rows[0].organization // If you want to include organization in the response
-      }
+      },
+      dairydata : dairydata
     });
   } catch (error) {
     console.error(error);
@@ -323,7 +349,7 @@ async function registefarmer(req, res) {
   const { username, fullName, mobile_number, email, address, milkType, rateChart, panCard, aadhaarCard, bankName, accountNumber, ifscCode, role } = req.body;
 
   // Check if all required fields are provided
-  if (!username || !fullName || !mobile_number || !email || !address || !milkType || !rateChart || !panCard || !aadhaarCard || !bankName || !accountNumber || !ifscCode || !role) {
+  if (!username || !fullName || !mobile_number || !address || !milkType || !rateChart || !role) {
     return res.status(400).json({ message: 'All fields are required', success : false });
   }
 

@@ -8,6 +8,7 @@ const userRoutes = require('./routes/userRoutes');
 const roleRoutes = require('./routes/roleRoutes');
 const branchRoutes = require('./routes/branchRoutes');
 const confRoutes = require('./routes/confRoutes');
+const collectionsRoutes = require('./routes/collectionsRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -28,6 +29,7 @@ app.use('/users', userRoutes);
 app.use('/roles', roleRoutes);
 app.use('/branch', branchRoutes);
 app.use('/conf', confRoutes);
+app.use('/collections', collectionsRoutes);
 
 // Starting the server
 const PORT = process.env.PORT || 5000;

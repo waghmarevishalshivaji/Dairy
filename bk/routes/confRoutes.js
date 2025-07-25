@@ -14,7 +14,9 @@ const upload = multer({
 
 
 
-router.post('/createrate', upload.single('csv'), confController.createrate);
+router.post('/createrate', upload.single('csv'), confController.uploadRates);
+router.get('/get-rate', confController.getRate); // GET /get-rate?fat=3.5&snf=7.1
+router.get('/get-rate-names', confController.getRatename); // GET /get-rate?fat=3.5&snf=7.1
 // router.post('/login', authController.login);
 
 // // OTP generation route

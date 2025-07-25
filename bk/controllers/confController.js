@@ -31,140 +31,171 @@ const upload = multer({
 //   }
 // }
 
-async function createrate (req, res) {
-const csvFilePath = path.join(__dirname, req.file.path);
-const organisation_id = req.body.organisation_id; // from the frontend form
-const created_by = req.body.created_by; // from the frontend form
+// async function createrate (req, res) {
+// // const csvFilePath = path.join(__dirname, req.file.path);
+// const csvFilePath = req.file.path;
+// const organisation_id = req.body.organisation_id; // from the frontend form
+// const created_by = req.body.created_by; // from the frontend form
 
-// Parse the CSV file and insert into the database
-const results = [];
+// // Parse the CSV file and insert into the database
+// const results = [];
 
- fs.createReadStream(csvFilePath)
-    .pipe(csvParser())
-    .on('data', (data) => {
-    // Add organisation_id and created_by to the parsed data
-    data.organisation_id = organisation_id;
-    data.created_by = created_by;
-    results.push(data);
-    })
-    .on('end', async ()  =>  {
+//  fs.createReadStream(csvFilePath)
+//     .pipe(csvParser())
+//     .on('data', (data) => {
+//     // Add organisation_id and created_by to the parsed data
+//     data.organisation_id = organisation_id;
+//     data.created_by = created_by;
+//     results.push(data);
+//     })
+//     .on('end', async ()  =>  {
 
-        // Prepare the data for insertion using map
-        const values = results.map(record => [
-            record.fat,
-            record.snf,
-            record.type,
-            record.created_by,
-            record.organisation_id,
-            record.price
-        ]);
+//         // Prepare the data for insertion using map
+//         const values = results.map(record => [
+//             record.fat,
+//             record.snf,
+//             record.type,
+//             record.created_by,
+//             record.organisation_id,
+//             record.price
+//         ]);
 
-        try {
-            // Perform the batch insert
-            const [result] = await db.execute(
-            'INSERT INTO rate (fat, snf, type, created_by, organisation_id, price) VALUES ?',
-            [values]
-            );
+//         try {
+//             // Perform the batch insert
+//             // const [result] = await db.execute(
+//             // 'INSERT INTO rate (fat, snf, type, created_by, organisation_id, price) VALUES ?',
+//             // [values]
+//             // );
 
-            // Respond with success message
-            res.status(201).json({ message: 'Rates created successfully', data: result });
-        } catch (error) {
-            console.error(error);
-            res.status(500).json({ message: 'Server error' });
-        }
+//             // Respond with success message
+//             res.status(201).json({ message: 'Rates created successfully', data: values });
+//         } catch (error) {
+//             console.error(error);
+//             res.status(500).json({ message: 'Server error' });
+//         }
 
+//     });
+// };
 
+const uploadRates = async (req, res) => {
+  const filePath = req.file.path;
+  const { created_by, organisation_id, name, type } = req.body;
 
-    // After parsing, insert the data into the MySQL database
+  const results = [];
 
-    // const [result] = await db.execute(
-    //   'INSERT INTO rate (fat, snf, type, created_by, organisation_id, price) VALUES (?, ?, ?, ?, ?, ?)',
-    //   [orgName, orgDetails, address]
-    // );
-    // res.status(201).json({ message: 'Organization created successfully' });
+fs.createReadStream(filePath)
+  .pipe(csvParser())
+  .on('data', (row) => {
+    const fat = parseFloat(row['FAT/SNF']?.trim());
+    if (isNaN(fat)) return;
 
-    // const insertQuery = `
-    //     INSERT INTO rate (fat, snf, type, created_by, organisation_id, price)
-    //     VALUES ?
-    // `;
+    // Loop through each SNF column
+    Object.keys(row).forEach((key) => {
+      if (key === 'FAT/SNF') return;
 
-    // const values = results.map(row => [
-    //     row.fat,
-    //     row.snf,
-    //     row.type,
-    //     row.created_by,
-    //     row.organisation_id,
-    //     row.price
-    // ]);
+      const snf = parseFloat(key.trim());
+      const price = parseFloat(row[key].trim());
 
-    // pool.query(insertQuery, [values], (err, result) => {
-    //     if (err) {
-    //     console.error('Error inserting data:', err);
-    //     return res.status(500).json({ message: 'Error inserting data', error: err });
-    //     }
-
-    //     // Delete the uploaded file after processing
-    //     fs.unlinkSync(csvFilePath);
-
-    //     // Send success response
-    //     res.status(200).json({ message: 'Data uploaded successfully', data: result });
-    // });
+      if (!isNaN(snf) && !isNaN(price)) {
+        results.push([fat, snf, price, type, name, created_by, organisation_id]);
+      } else {
+        console.warn(`Skipping cell: FAT=${fat}, SNF=${key}, Value=${row[key]}`);
+      }
     });
+  })
+  .on('end', async () => {
+    if (results.length === 0) {
+      return res.status(400).json({ message: 'No valid rate records found in CSV' });
+    }
+
+    try {
+
+      await db.query(
+          'DELETE FROM rate WHERE organisation_id = ? AND type = ? AND name = ?',
+          [organisation_id, type, name]
+      );
+
+      await db.query(
+        'INSERT INTO rate (fat, snf, price, type, name, created_by, organisation_id) VALUES ?',
+        [results]
+      );
+      res.json({ message: 'Rates uploaded successfully.', inserted: results.length });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: 'Database insert error.' });
+    }
+  });
+
 };
 
-// async function getOrganizations(req, res) {
-//   try {
-//     // Fetch all organizations from the database
-//     const [rows] = await db.execute('SELECT * FROM organizations');
 
-//     if (rows.length === 0) {
-//       return res.status(404).json({ message: 'No organizations found' });
-//     }
+const getRate = async (req, res) => {
+  const { fat, snf } = req.query;
 
-//     // Return organizations list
-//     res.status(200).json({ organizations: rows });
-//   } catch (err) {
-//     console.error('Error fetching organizations:', err);
-//     res.status(500).json({ message: 'Server error' });
-//   }
-// }
+  if (!fat || !snf) {
+    return res.status(400).json({ message: 'Missing fat or snf' });
+  }
+
+  const fatFloat = parseFloat(fat);
+  const snfFloat = parseFloat(snf);
+
+  try {
+    const [rows] = await db.query(
+      `SELECT price 
+       FROM rate 
+       WHERE fat BETWEEN ? AND ? 
+         AND snf BETWEEN ? AND ? 
+       LIMIT 1`,
+      [
+        fatFloat - 0.01, fatFloat + 0.01,
+        snfFloat - 0.01, snfFloat + 0.01
+      ]
+    );
+
+    if (rows.length > 0) {
+      res.json({ price: rows[0].price });
+    } else {
+      res.status(404).json({ message: 'No matching rate found' });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Query failed' });
+  }
+};
 
 
-// async function updateOrganization(req, res) {
-//   const { organization_id, address } = req.body;
+const getRatename = async (req, res) => {
+  const { orgid, type } = req.query;
 
-//   // Validate input
-//   if (!organization_id || !address) {
-//     return res.status(400).json({ message: 'Organization ID and address are required' });
-//   }
+  if (!orgid) {
+    return res.status(400).json({ message: 'Missing org Id' });
+  }
 
-//   try {
-//     // Query the database to find the organization by ID
-//     const [rows] = await db.execute('SELECT * FROM organization WHERE id = ?', [organization_id]);
+  try {
+    const [rows] = await db.query(
+      `SELECT DISTINCT name 
+        FROM rate 
+       WHERE organisation_id = ? AND type = ?`,
+      [
+        orgid,
+        type
+      ]
+    );
 
-//     if (rows.length === 0) {
-//       return res.status(400).json({ message: 'Organization not found' });
-//     }
+    if (rows.length > 0) {
+      res.status(200).json({  message: 'Sucess', data: rows });
+    } else {
+      res.status(404).json({ message: 'No matching record found' });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Query failed' });
+  }
+};
 
-//     // Update the organization's address
-//     const [updateResult] = await db.execute(
-//       'UPDATE organization SET address = ? WHERE id = ?',
-//       [address, organization_id]
-//     );
-
-//     if (updateResult.affectedRows === 0) {
-//       return res.status(400).json({ message: 'Failed to update organization' });
-//     }
-
-//     // Return a success response
-//     res.status(200).json({ message: 'Organization updated successfully' });
-
-//   } catch (err) {
-//     console.error('Error updating organization:', err);
-//     res.status(500).json({ message: 'Server error' });
-//   }
-// }
 
 module.exports = {
-    createrate
+    uploadRates,
+    getRate,
+    getRatename
 };

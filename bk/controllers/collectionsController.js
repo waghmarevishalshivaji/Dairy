@@ -33,6 +33,8 @@ async function getCollections(req, res) {
 // Get collection by ID
 async function getCollectionById(req, res) {
     const { id } = req.params;
+
+    console.log('Fetching collection with ID:', id);
     try {
         const [rows] = await db.execute('SELECT * FROM collections WHERE id = ?', [id]);
         if (rows.length === 0) {

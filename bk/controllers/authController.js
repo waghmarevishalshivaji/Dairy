@@ -397,6 +397,45 @@ async function registefarmerid(req, res) {
 } 
 
 
+async function updateUser(req, res) {
+  const { id, ...updateFields } = req.body;
+
+  if (!id) {
+    return res.status(400).json({ message: 'formatted_user_id is required' });
+  }
+
+  // No fields to update
+  if (Object.keys(updateFields).length === 0) {
+    return res.status(400).json({ message: 'No fields provided to update' });
+  }
+
+  try {
+    // Build dynamic SET clause
+    const setClause = Object.keys(updateFields)
+      .map(field => `${field} = ?`)
+      .join(', ');
+
+    const values = Object.values(updateFields);
+    values.push(id); // for WHERE clause
+
+    const sql = `UPDATE users SET ${setClause} WHERE id  = ?`;
+
+    const [result] = await db.query(sql, values);
+
+    if (result.affectedRows > 0) {
+      res.json({ message: 'User updated successfully' });
+    } else {
+      res.status(404).json({ message: 'User not found or no changes made' });
+    }
+
+  } catch (error) {
+    console.error('Update error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+
+
 module.exports = {
     generateOTP,
     verifyOTP,
@@ -405,5 +444,6 @@ module.exports = {
     updateConfirm,
     login, 
     registefarmer,
-    registefarmerid
+    registefarmerid,
+    updateUser
 };

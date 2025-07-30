@@ -48,16 +48,19 @@ async function getCollectionById(req, res) {
 }
 
 // Get collection by ID
-async function getCollectionById(req, res) {
+async function getCollectionBytab(req, res) {
     const { farmer_id, shift } = req.query;
 
-    console.log('Fetching collection with ID:', id);
+    console.log('Fetching collection with ID:', farmer_id, shift);
     try {
-        const [rows] = await db.execute('SELECT * FROM collections WHERE farmer_id = ? AND shift', [farmer_id, shift]);
+
+        // query = 'SELECT * FROM users WHERE mobile_number = ? AND role = ?';  // Filter by both mobile_number and role
+        // params = [mobile_number, role];
+        const [rows] = await db.execute('SELECT * FROM collections WHERE farmer_id = ? AND shift = ?', [farmer_id, shift]);
         if (rows.length === 0) {
             return res.status(404).json({ message: 'Collection not found' });
         }
-        res.status(200).json(rows[0]);
+        res.status(200).json({result : 1, message : "sucess", data : rows});
     } catch (err) {
         console.error('Error fetching collection:', err);
         res.status(500).json({ message: 'Server error' });
@@ -109,5 +112,6 @@ module.exports = {
     getCollections,
     getCollectionById,
     updateCollection,
-    deleteCollection
+    deleteCollection,
+    getCollectionBytab,
 };

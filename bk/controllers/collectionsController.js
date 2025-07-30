@@ -36,7 +36,24 @@ async function getCollectionById(req, res) {
 
     console.log('Fetching collection with ID:', id);
     try {
-        const [rows] = await db.execute('SELECT * FROM collections WHERE id = ?', [id]);
+        const [rows] = await db.execute('SELECT * FROM collections WHERE id', [id, shift]);
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'Collection not found' });
+        }
+        res.status(200).json(rows[0]);
+    } catch (err) {
+        console.error('Error fetching collection:', err);
+        res.status(500).json({ message: 'Server error' });
+    }
+}
+
+// Get collection by ID
+async function getCollectionById(req, res) {
+    const { farmer_id, shift } = req.query;
+
+    console.log('Fetching collection with ID:', id);
+    try {
+        const [rows] = await db.execute('SELECT * FROM collections WHERE farmer_id = ? AND shift', [farmer_id, shift]);
         if (rows.length === 0) {
             return res.status(404).json({ message: 'Collection not found' });
         }

@@ -380,7 +380,7 @@ async function registefarmer(req, res) {
     // ]);
 
 
-    const fields = [
+    const allowedFields = [
       'username',
       'fullName',
       'mobile_number',
@@ -396,12 +396,45 @@ async function registefarmer(req, res) {
       'role'
     ];
 
-    const values = fields.map(field => req.body[field]);
+    // Only include fields that exist in the request
+    const fieldsToInsert = allowedFields.filter(field => field in req.body);
 
-    await db.execute(
-      `INSERT INTO users (${fields.join(', ')}) VALUES (${fields.map(() => '?').join(', ')})`,
-      values
-    );
+    // Extract values in same order
+    const values = fieldsToInsert.map(field => req.body[field]);
+
+    // Debug (you asked for this)
+    console.log('Fields:', fieldsToInsert);
+    console.log('Values:', values);
+
+    // Build dynamic query
+    const placeholders = fieldsToInsert.map(() => '?').join(', ');
+    const query = `INSERT INTO users (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
+
+    await db.execute(query, values);
+
+
+    // const fields = [
+    //   'username',
+    //   'fullName',
+    //   'mobile_number',
+    //   'email',
+    //   'address',
+    //   'milkType',
+    //   'rateChart',
+    //   'panCard',
+    //   'aadhaarCard',
+    //   'bankName',
+    //   'accountNumber',
+    //   'ifscCode',
+    //   'role'
+    // ];
+
+    // const values = fields.map(field => req.body[field]);
+    // console.log(values)
+    // await db.execute(
+    //   `INSERT INTO users (${fields.join(', ')}) VALUES (${fields.map(() => '?').join(', ')})`,
+    //   values
+    // );
 
     // Create a JWT token for the new user
     // const token = await jwt.sign({ username, mobile_number, role }, process.env.JWT_SECRET, { expiresIn: '8h' }, { data : req.body});

@@ -124,6 +124,122 @@ async function getCollectionById(req, res) {
 //   }
 // }
 
+// async function getCollectionBytab(req, res) {
+//   let { farmer_id, shift, type } = req.query;
+
+//   try {
+//     let query = 'SELECT * FROM collections';
+//     const conditions = [];
+//     const params = [];
+
+//     // Conditionally add filters
+//     if (farmer_id) {
+//       conditions.push('farmer_id = ?');
+//       params.push(farmer_id);
+//     }
+
+//     if (shift) {
+//       conditions.push('shift = ?');
+//       params.push(shift);
+//     }
+
+//     // Only filter by type if it's not "Both"
+//     if (type && type !== 'Both') {
+//       conditions.push('type = ?');
+//       params.push(type);
+//     }
+
+//     // Add WHERE clause if needed
+//     if (conditions.length > 0) {
+//       query += ' WHERE ' + conditions.join(' AND ');
+//     }
+
+//     console.log('QUERY:', query);
+//     console.log('PARAMS:', params);
+
+//     const [rows] = await db.execute(query, params);
+
+//     if (rows.length === 0) {
+//       return res.status(404).json({ success: false, message: 'Collection not found' });
+//     }
+
+//     res.status(200).json({
+//       result: 1,
+//       success: true,
+//       message: 'Success',
+//       data: rows
+//     });
+
+//   } catch (err) {
+//     console.error('Error fetching collection:', err);
+//     res.status(500).json({ success: false, message: 'Server error' });
+//   }
+// }
+
+// async function getCollectionBytab(req, res) {
+//   let { farmer_id, shift, type } = req.query;
+
+//   try {
+//     let query = 'SELECT * FROM collections';
+//     const conditions = [];
+//     const params = [];
+
+//     // Conditionally add filters
+//     if (farmer_id) {
+//       conditions.push('farmer_id = ?');
+//       params.push(farmer_id);
+//     }
+
+//     if (shift) {
+//       conditions.push('shift = ?');
+//       params.push(shift);
+//     }
+
+//     // Only filter by type if it's not "Both"
+//     if (type && type !== 'Both') {
+//       conditions.push('type = ?');
+//       params.push(type);
+//     }
+
+//     // Add WHERE clause if needed
+//     if (conditions.length > 0) {
+//       query += ' WHERE ' + conditions.join(' AND ');
+//     }
+
+//     console.log('QUERY:', query);
+//     console.log('PARAMS:', params);
+
+//     const [rows] = await db.execute(query, params);
+
+//     if (rows.length === 0) {
+//       return res.status(404).json({ success: false, message: 'Collection not found' });
+//     }
+
+//     // Group records by date
+//     const groupedData = {};
+//     rows.forEach(record => {
+//       // Assuming there's a date field, e.g., 'date' (adjust as needed)
+//       const dateKey = record.date ? new Date(record.date).toISOString().slice(0, 10) : 'Unknown';
+
+//       if (!groupedData[dateKey]) {
+//         groupedData[dateKey] = [];
+//       }
+//       groupedData[dateKey].push(record);
+//     });
+
+//     res.status(200).json({
+//       result: 1,
+//       success: true,
+//       message: 'Success',
+//       data: groupedData
+//     });
+
+//   } catch (err) {
+//     console.error('Error fetching collection:', err);
+//     res.status(500).json({ success: false, message: 'Server error' });
+//   }
+// }
+
 async function getCollectionBytab(req, res) {
   let { farmer_id, shift, type } = req.query;
 
@@ -132,24 +248,20 @@ async function getCollectionBytab(req, res) {
     const conditions = [];
     const params = [];
 
-    // Conditionally add filters
+    // Add filters based on query params
     if (farmer_id) {
       conditions.push('farmer_id = ?');
       params.push(farmer_id);
     }
-
     if (shift) {
       conditions.push('shift = ?');
       params.push(shift);
     }
-
-    // Only filter by type if it's not "Both"
     if (type && type !== 'Both') {
       conditions.push('type = ?');
       params.push(type);
     }
 
-    // Add WHERE clause if needed
     if (conditions.length > 0) {
       query += ' WHERE ' + conditions.join(' AND ');
     }
@@ -163,18 +275,51 @@ async function getCollectionBytab(req, res) {
       return res.status(404).json({ success: false, message: 'Collection not found' });
     }
 
+    // Group records by formatted date
+    const collectionData = {};
+
+    rows.forEach(record => {
+      // Adjust date field name as per your schema
+      const dateObj = new Date(record.created_at);
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const year = dateObj.getFullYear();
+      const dateKey = `${day}-${month}-${year}`;
+
+      if (!collectionData[dateKey]) {
+        collectionData[dateKey] = [];
+      }
+
+      // Push only the needed fields
+      collectionData[dateKey].push({
+        type: record.type,
+        qty: record.qty,
+        fat: record.fat,
+        snf: record.snf,
+        rate: record.rate,
+        amount: record.amount,
+      });
+    });
+
+    // Convert object to array with desired structure
+    const resultArray = Object.keys(collectionData).map(date => ({
+      date,
+      collections: collectionData[date],
+    }));
+
     res.status(200).json({
       result: 1,
       success: true,
       message: 'Success',
-      data: rows
+      data: resultArray,
     });
-
   } catch (err) {
     console.error('Error fetching collection:', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 }
+
+
 
 
 

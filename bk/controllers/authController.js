@@ -375,9 +375,33 @@ async function registefarmer(req, res) {
     // const hashedPassword = await bcrypt.hash(password, 10);
 
     // Insert the new user into the database
-    await db.execute('INSERT INTO users (username, fullName, mobile_number, email, address, milkType, rateChart, panCard, aadhaarCard, bankName, accountNumber, ifscCode, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [
-      username, fullName, mobile_number, email, address, milkType, rateChart, panCard, aadhaarCard, bankName, accountNumber, ifscCode, role
-    ]);
+    // await db.execute('INSERT INTO users (username, fullName, mobile_number, email, address, milkType, rateChart, panCard, aadhaarCard, bankName, accountNumber, ifscCode, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [
+    //   username, fullName, mobile_number, email, address, milkType, rateChart, panCard, aadhaarCard, bankName, accountNumber, ifscCode, role
+    // ]);
+
+
+    const fields = [
+      'username',
+      'fullName',
+      'mobile_number',
+      'email',
+      'address',
+      'milkType',
+      'rateChart',
+      'panCard',
+      'aadhaarCard',
+      'bankName',
+      'accountNumber',
+      'ifscCode',
+      'role'
+    ];
+
+    const values = fields.map(field => req.body[field]);
+
+    await db.execute(
+      `INSERT INTO users (${fields.join(', ')}) VALUES (${fields.map(() => '?').join(', ')})`,
+      values
+    );
 
     // Create a JWT token for the new user
     // const token = await jwt.sign({ username, mobile_number, role }, process.env.JWT_SECRET, { expiresIn: '8h' }, { data : req.body});

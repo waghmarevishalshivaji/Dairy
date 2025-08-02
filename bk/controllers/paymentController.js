@@ -215,8 +215,8 @@ async function getpayment(req, res) {
         startDate = `${year}-${String(m).padStart(2, '0')}-11`;
         endDate = `${year}-${String(m).padStart(2, '0')}-20`;
       }
-      stDate = startDate
-      endDate = endDate
+      stDate = startDate.trim()
+      endDate = endDate.trim()
       if (startDate && endDate) {
         conditions.push('date BETWEEN ? AND ?');
         params.push(startDate, endDate);
@@ -224,8 +224,8 @@ async function getpayment(req, res) {
     }
 
     if (datefrom && dateto) {
-      stDate = datefrom
-      endDate = dateto
+      stDate = datefrom.trim()
+      endDate = dateto.trim()
       conditions.push('date BETWEEN ? AND ?');
       params.push(datefrom, dateto);
     } else if (datefrom) {

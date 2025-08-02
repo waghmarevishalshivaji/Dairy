@@ -69,11 +69,63 @@ async function getCollectionById(req, res) {
 //     }
 // }
 
+// async function getCollectionBytab(req, res) {
+//   let { farmer_id, shift, type } = req.query;
+
+
+//   console.log(req.query)
+//   // Default type if not provided
+//   if (!type) type = 'Both';
+
+//   try {
+//     let query = 'SELECT * FROM collections';
+//     const conditions = [];
+//     const params = [];
+
+//     // Conditionally add filters
+//     if (farmer_id) {
+//       conditions.push('farmer_id = ?');
+//       params.push(farmer_id);
+//     }
+
+//     if (shift) {
+//       conditions.push('shift = ?');
+//       params.push(shift);
+//     }
+
+//     if (type) {
+//       conditions.push('type = ?');
+//       params.push(type);
+//     }
+
+//     // Join WHERE conditions only if they exist
+//     if (conditions.length > 0) {
+//       query += ' WHERE ' + conditions.join(' AND ');
+//     }
+
+//     console.log(query)
+
+//     const [rows] = await db.execute(query, params);
+
+//     if (rows.length === 0) {
+//       return res.status(404).json({ success: false, message: 'Collection not found' });
+//     }
+
+//     res.status(200).json({
+//       result: 1,
+//       success: true,
+//       message: 'Success',
+//       data: rows
+//     });
+
+//   } catch (err) {
+//     console.error('Error fetching collection:', err);
+//     res.status(500).json({ success: false, message: 'Server error' });
+//   }
+// }
+
 async function getCollectionBytab(req, res) {
   let { farmer_id, shift, type } = req.query;
-
-  // Default type if not provided
-  if (!type) type = 'Both';
 
   try {
     let query = 'SELECT * FROM collections';
@@ -91,15 +143,19 @@ async function getCollectionBytab(req, res) {
       params.push(shift);
     }
 
-    if (type) {
+    // Only filter by type if it's not "Both"
+    if (type && type !== 'Both') {
       conditions.push('type = ?');
       params.push(type);
     }
 
-    // Join WHERE conditions only if they exist
+    // Add WHERE clause if needed
     if (conditions.length > 0) {
       query += ' WHERE ' + conditions.join(' AND ');
     }
+
+    console.log('QUERY:', query);
+    console.log('PARAMS:', params);
 
     const [rows] = await db.execute(query, params);
 
@@ -119,6 +175,7 @@ async function getCollectionBytab(req, res) {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 }
+
 
 
 

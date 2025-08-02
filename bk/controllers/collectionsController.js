@@ -72,29 +72,33 @@ async function getCollectionById(req, res) {
 async function getCollectionBytab(req, res) {
   let { farmer_id, shift, type } = req.query;
 
-  if (!type) {
-    type = 'Both'; // default
-  }
-
-  console.log('Fetching collection with:', { farmer_id, shift, type });
+  // Default type if not provided
+  if (!type) type = 'Both';
 
   try {
-    let query = 'SELECT * FROM collections WHERE 1=1';
+    let query = 'SELECT * FROM collections';
+    const conditions = [];
     const params = [];
 
+    // Conditionally add filters
     if (farmer_id) {
-      query += ' AND farmer_id = ?';
+      conditions.push('farmer_id = ?');
       params.push(farmer_id);
     }
 
     if (shift) {
-      query += ' AND shift = ?';
+      conditions.push('shift = ?');
       params.push(shift);
     }
 
     if (type) {
-      query += ' AND type = ?';
+      conditions.push('type = ?');
       params.push(type);
+    }
+
+    // Join WHERE conditions only if they exist
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
     }
 
     const [rows] = await db.execute(query, params);
@@ -115,6 +119,7 @@ async function getCollectionBytab(req, res) {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 }
+
 
 
 // Update collection

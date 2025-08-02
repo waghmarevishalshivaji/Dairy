@@ -7,34 +7,70 @@ const crypto = require('crypto');
 
 // POST /api/payments
 async function insertPayment(req, res) {
-  const {
-    date,
-    dairy_id,
-    farmer_id,
-    farmer_name,
-    payment_type,
-    amount_taken,
-    received,
-    descriptions
-  } = req.body;
+  // const {
+  //   date,
+  //   dairy_id,
+  //   farmer_id,
+  //   farmer_name,
+  //   payment_type,
+  //   amount_taken,
+  //   received,
+  //   descriptions
+  // } = req.body;
 
-  if (!date || !dairy_id || !farmer_id || !payment_type || !amount_taken) {
-    return res.status(400).json({ message: 'Missing required fields' });
-  }
+  // if (!date || !dairy_id || !farmer_id || !payment_type || !amount_taken) {
+  //   return res.status(400).json({ message: 'Missing required fields' });
+  // }
 
-  try {
-    const [result] = await db.query(
-      `INSERT INTO farmer_payments 
-      (date, dairy_id, farmer_id, farmer_name, payment_type, amount_taken, received, descriptions) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [date, dairy_id, farmer_id, farmer_name, payment_type, amount_taken, received || 0, descriptions || '']
-    );
+  // try {
+  //   const [result] = await db.query(
+  //     `INSERT INTO farmer_payments 
+  //     (date, dairy_id, farmer_id, farmer_name, payment_type, amount_taken, received, descriptions) 
+  //     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  //     [date, dairy_id, farmer_id, farmer_name, payment_type, amount_taken, received || 0, descriptions || '']
+  //   );
 
-    res.json({ message: 'Payment record inserted', id: result.insertId });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Insert failed' });
-  }
+    const allowedFields = [
+      'date',
+      'dairy_id',
+      'farmer_id',
+      'farmer_name',
+      'payment_type',
+      'amount_taken',
+      'received',
+      'descriptions'
+    ];
+
+    const requiredFields = ['date', 'dairy_id', 'farmer_id', 'payment_type'];
+
+    // 1. Validate required fields
+    const missingFields = requiredFields.filter(field => !req.body[field] || req.body[field].toString().trim() === '');
+    if (missingFields.length > 0) {
+      return res.status(400).json({ message: `Missing required field(s): ${missingFields.join(', ')}` });
+    }
+
+    // 2. Filter fields to insert based on request
+    const fieldsToInsert = allowedFields.filter(field => req.body.hasOwnProperty(field));
+    const values = fieldsToInsert.map(field => req.body[field]);
+
+    // 3. Create placeholders and build query
+    const placeholders = fieldsToInsert.map(() => '?').join(', ');
+    const query = `INSERT INTO farmer_payments (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
+
+    try {
+      const [result] = await db.execute(query, values);
+      res.status(200).json({ success: true, message: 'Payment record added successfully', id: result.insertId });
+    } catch (error) {
+      console.error('Error inserting payment:', error);
+      res.status(500).json({ success: false, message: 'Server error' });
+    }
+
+
+  //   res.json({ message: 'Payment record inserted', id: result.insertId });
+  // } catch (err) {
+  //   console.error(err);
+  //   res.status(500).json({ message: 'Insert failed' });
+  // }
 }
 
 

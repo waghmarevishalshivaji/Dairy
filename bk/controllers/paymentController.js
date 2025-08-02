@@ -192,6 +192,8 @@ async function getpayment(req, res) {
       params.push(dairyid);
     }
 
+    let stDate, endDate = '';
+
     if (!datefrom && !dateto) {
       let startDate, endDate;
 
@@ -213,7 +215,8 @@ async function getpayment(req, res) {
         startDate = `${year}-${String(m).padStart(2, '0')}-11`;
         endDate = `${year}-${String(m).padStart(2, '0')}-20`;
       }
-
+      stDate = startDate
+      endDate = endDate
       if (startDate && endDate) {
         conditions.push('date BETWEEN ? AND ?');
         params.push(startDate, endDate);
@@ -221,6 +224,8 @@ async function getpayment(req, res) {
     }
 
     if (datefrom && dateto) {
+      stDate = datefrom
+      endDate = dateto
       conditions.push('date BETWEEN ? AND ?');
       params.push(datefrom, dateto);
     } else if (datefrom) {
@@ -246,7 +251,10 @@ async function getpayment(req, res) {
     }
 
     res.status(200).json({
+      startDate: stDate,
+      endDate: endDate,
       result: 1,
+      sum : rows.reduce((acc, curr) => acc + curr.amount_taken, 0),
       success: true,
       message: 'Success',
       data: rows

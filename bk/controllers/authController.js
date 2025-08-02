@@ -137,6 +137,8 @@ async function login(req, res) {
         username: rows[0].username,
         mobile_number: rows[0].mobile_number,
         role: rows[0].role,
+        role: rows[0].is_mobile,
+        role: rows[0].confirm,
         organization: rows[0].organization // If you want to include organization in the response
       },
       dairydata : dairydata

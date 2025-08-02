@@ -125,34 +125,86 @@ async function activatePayment(req, res) {
 //         res.status(500).json({ message: 'Server error' });
 //     }
 // }
+// async function getpayment(req, res) {
+//   let { farmer_id, datefrom, dateto, dairyid } = req.query;
+
+//   try {
+//     let query = 'SELECT * FROM farmer_payments WHERE 1=1';
+//     const params = [];
+
+//     // Apply filters conditionally
+//     if (farmer_id) {
+//       query += ' AND farmer_id = ?';
+//       params.push(farmer_id);
+//     }
+
+//     if (dairyid) {
+//       query += ' AND dairy_id = ?';
+//       params.push(dairyid);
+//     }
+
+//     if (datefrom && dateto) {
+//       query += ' AND date BETWEEN ? AND ?';
+//       params.push(datefrom, dateto);
+//     } else if (datefrom) {
+//       query += ' AND date >= ?';
+//       params.push(datefrom);
+//     } else if (dateto) {
+//       query += ' AND date <= ?';
+//       params.push(dateto);
+//     }
+
+//     const [rows] = await db.execute(query, params);
+
+//     if (rows.length === 0) {
+//       return res.status(404).json({ success: false, message: 'No payments found' });
+//     }
+
+//     res.status(200).json({ result: 1, success: true, message: 'Success', data: rows });
+
+//   } catch (err) {
+//     console.error('Error fetching payments:', err);
+//     res.status(500).json({ success: false, message: 'Server error' });
+//   }
+// }
+
 async function getpayment(req, res) {
   let { farmer_id, datefrom, dateto, dairyid } = req.query;
 
   try {
-    let query = 'SELECT * FROM farmer_payments WHERE 1=1';
+    let query = 'SELECT * FROM farmer_payments';
+    const conditions = [];
     const params = [];
 
-    // Apply filters conditionally
+    // Conditionally build WHERE clause
     if (farmer_id) {
-      query += ' AND farmer_id = ?';
+      conditions.push('farmer_id = ?');
       params.push(farmer_id);
     }
 
     if (dairyid) {
-      query += ' AND dairy_id = ?';
+      conditions.push('dairy_id = ?');
       params.push(dairyid);
     }
 
     if (datefrom && dateto) {
-      query += ' AND date BETWEEN ? AND ?';
+      conditions.push('date BETWEEN ? AND ?');
       params.push(datefrom, dateto);
     } else if (datefrom) {
-      query += ' AND date >= ?';
+      conditions.push('date >= ?');
       params.push(datefrom);
     } else if (dateto) {
-      query += ' AND date <= ?';
+      conditions.push('date <= ?');
       params.push(dateto);
     }
+
+    // Append WHERE clause only if conditions exist
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    console.log('SQL:', query);
+    console.log('Params:', params);
 
     const [rows] = await db.execute(query, params);
 
@@ -160,13 +212,19 @@ async function getpayment(req, res) {
       return res.status(404).json({ success: false, message: 'No payments found' });
     }
 
-    res.status(200).json({ result: 1, success: true, message: 'Success', data: rows });
+    res.status(200).json({
+      result: 1,
+      success: true,
+      message: 'Success',
+      data: rows
+    });
 
   } catch (err) {
     console.error('Error fetching payments:', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 }
+
 
 
 

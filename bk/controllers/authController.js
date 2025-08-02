@@ -128,6 +128,8 @@ async function login(req, res) {
       dairydata.name = dairyrows[0].name
     }
 
+    console.log("here===",rows[0])
+
     // Send response with token
     res.status(200).json({
       token,
@@ -137,12 +139,13 @@ async function login(req, res) {
         username: rows[0].username,
         mobile_number: rows[0].mobile_number,
         role: rows[0].role,
-        role: rows[0].is_mobile,
-        role: rows[0].confirm,
-        organization: rows[0].organization // If you want to include organization in the response
+        confirm: rows[0].confirm,
+        is_mobile: rows[0].is_mobile,
+        organization: rows[0].organization, // If you want to include organization in the response
       },
       dairydata : dairydata
     });
+    
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error', success: false });

@@ -13,6 +13,24 @@ const upload = multer({
 });
 
 
+router.post('/upload-image', upload.single('image'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: 'No image uploaded' });
+  }
+
+  res.json({
+    success: true,
+    message: 'Image uploaded successfully',
+    file: {
+      originalname: req.file.originalname,
+      filename: req.file.filename,
+      path: `/uploads/${req.file.filename}`,
+      size: req.file.size
+    }
+  });
+});
+
+
 
 router.post('/createrate', upload.single('csv'), confController.uploadRates);
 router.get('/get-rate', confController.getRate); // GET /get-rate?fat=3.5&snf=7.1

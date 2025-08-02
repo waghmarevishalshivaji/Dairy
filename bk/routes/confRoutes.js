@@ -9,7 +9,7 @@ const path = require('path');
 // Configure multer for file uploads
 const upload = multer({
     dest: 'uploads/',  // Folder to temporarily store uploaded files
-    limits: { fileSize: 10 * 1024 * 1024 }  // Limit to 10MB file size
+    // limits: { fileSize: 10 * 1024 * 1024 }  // Limit to 10MB file size
 });
 
 

@@ -210,7 +210,7 @@ async function getpayment(req, res) {
     const [rows] = await db.execute(query, params);
 
     if (rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'No payments found' });
+      return res.status(200).json({ success: true, message: 'No payments found', data: [] });
     }
 
     res.status(200).json({

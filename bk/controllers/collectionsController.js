@@ -298,6 +298,8 @@ async function getCollectionBytab(req, res) {
         snf: record.snf,
         rate: record.rate,
         amount: record.rate,
+        type: record.type,
+        shift: record.shift,
       });
     });
 

@@ -143,6 +143,7 @@ async function login(req, res) {
         is_mobile: rows[0].is_mobile,
         organization: rows[0].organization, // If you want to include organization in the response
       },
+      userAll: rows[0],
       dairydata : dairydata
     });
     

@@ -49,8 +49,10 @@ async function getCollectionById(req, res) {
 
 // Get collection by ID
 async function getCollectionBytab(req, res) {
-    const { farmer_id, shift } = req.query;
-
+    let { farmer_id, shift, type } = req.query;
+    if(!type){
+        type = 'Both';
+    }
     console.log('Fetching collection with ID:', farmer_id, shift);
     try {
 

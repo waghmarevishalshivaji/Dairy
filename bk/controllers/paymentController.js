@@ -6,29 +6,7 @@ const crypto = require('crypto');
 
 
 // POST /api/payments
-async function insertPayment(req, res) {
-  // const {
-  //   date,
-  //   dairy_id,
-  //   farmer_id,
-  //   farmer_name,
-  //   payment_type,
-  //   amount_taken,
-  //   received,
-  //   descriptions
-  // } = req.body;
-
-  // if (!date || !dairy_id || !farmer_id || !payment_type || !amount_taken) {
-  //   return res.status(400).json({ message: 'Missing required fields' });
-  // }
-
-  // try {
-  //   const [result] = await db.query(
-  //     `INSERT INTO farmer_payments 
-  //     (date, dairy_id, farmer_id, farmer_name, payment_type, amount_taken, received, descriptions) 
-  //     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-  //     [date, dairy_id, farmer_id, farmer_name, payment_type, amount_taken, received || 0, descriptions || '']
-  //   );
+async function insertPayment(req, res) {  
 
     const allowedFields = [
       'date',
@@ -65,12 +43,6 @@ async function insertPayment(req, res) {
       res.status(500).json({ success: false, message: 'Server error' });
     }
 
-
-  //   res.json({ message: 'Payment record inserted', id: result.insertId });
-  // } catch (err) {
-  //   console.error(err);
-  //   res.status(500).json({ message: 'Insert failed' });
-  // }
 }
 
 
@@ -132,6 +104,69 @@ async function activatePayment(req, res) {
 };
 
 
+// Get collection by ID
+// async function getpayment(req, res) {
+//     let { farmer_id, datefrom, dateto, dairyid } = req.query;
+//     if(!type){
+//         type = 'Both';
+//     }
+//     console.log('Fetching payment with ID:', farmer_id, shift);
+//     try {
+
+//         // query = 'SELECT * FROM users WHERE mobile_number = ? AND role = ?';  // Filter by both mobile_number and role
+//         // params = [mobile_number, role];
+//         const [rows] = await db.execute('SELECT * FROM farmer_payments WHERE farmer_id = ?', [farmer_id]);
+//         if (rows.length === 0) {
+//             return res.status(404).json({ success: false, message: 'Collection not found' });
+//         }
+//         res.status(200).json({result : 1, success: true, message : "sucess", data : rows});
+//     } catch (err) {
+//         console.error('Error fetching collection:', err);
+//         res.status(500).json({ message: 'Server error' });
+//     }
+// }
+async function getpayment(req, res) {
+  let { farmer_id, datefrom, dateto, dairyid } = req.query;
+
+  try {
+    let query = 'SELECT * FROM farmer_payments WHERE 1=1';
+    const params = [];
+
+    // Apply filters conditionally
+    if (farmer_id) {
+      query += ' AND farmer_id = ?';
+      params.push(farmer_id);
+    }
+
+    if (dairyid) {
+      query += ' AND dairy_id = ?';
+      params.push(dairyid);
+    }
+
+    if (datefrom && dateto) {
+      query += ' AND date BETWEEN ? AND ?';
+      params.push(datefrom, dateto);
+    } else if (datefrom) {
+      query += ' AND date >= ?';
+      params.push(datefrom);
+    } else if (dateto) {
+      query += ' AND date <= ?';
+      params.push(dateto);
+    }
+
+    const [rows] = await db.execute(query, params);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'No payments found' });
+    }
+
+    res.status(200).json({ result: 1, success: true, message: 'Success', data: rows });
+
+  } catch (err) {
+    console.error('Error fetching payments:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+}
 
 
 
@@ -140,5 +175,6 @@ module.exports = {
     insertPayment,
     updatePayment,
     inactivatePayment,
-    activatePayment
+    activatePayment,
+    getpayment
 };

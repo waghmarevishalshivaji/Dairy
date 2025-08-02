@@ -178,6 +178,7 @@ async function getpayment(req, res) {
 
     // Conditionally build WHERE clause
     if (farmer_id) {
+      farmer_id = farmer_id.trim()
       conditions.push('farmer_id = ?');
       params.push(farmer_id);
     }

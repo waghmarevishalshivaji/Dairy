@@ -202,6 +202,11 @@ async function verifyOTP(req, res) {
       return res.status(400).json({ message: 'Mobile number not found', success : false });
     }
 
+     const [updateResult] = await db.execute(
+      'UPDATE users SET is_mobile = ? WHERE mobile_number = ?',
+      [1, mobile_number]
+    );
+
     const userOtp = rows[0];
 
     // Check if the OTP provided by the user matches the one stored in the database

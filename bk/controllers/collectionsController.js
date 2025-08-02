@@ -48,26 +48,74 @@ async function getCollectionById(req, res) {
 }
 
 // Get collection by ID
-async function getCollectionBytab(req, res) {
-    let { farmer_id, shift, type } = req.query;
-    if(!type){
-        type = 'Both';
-    }
-    console.log('Fetching collection with ID:', farmer_id, shift);
-    try {
+// async function getCollectionBytab(req, res) {
+//     let { farmer_id, shift, type } = req.query;
+//     if(!type){
+//         type = 'Both';
+//     }
+//     console.log('Fetching collection with ID:', farmer_id, shift);
+//     try {
 
-        // query = 'SELECT * FROM users WHERE mobile_number = ? AND role = ?';  // Filter by both mobile_number and role
-        // params = [mobile_number, role];
-        const [rows] = await db.execute('SELECT * FROM collections WHERE farmer_id = ? AND shift = ? AND type = ?', [farmer_id, shift, type]);
-        if (rows.length === 0) {
-            return res.status(404).json({ success: false, message: 'Collection not found' });
-        }
-        res.status(200).json({result : 1, success: true, message : "sucess", data : rows});
-    } catch (err) {
-        console.error('Error fetching collection:', err);
-        res.status(500).json({ message: 'Server error' });
+//         // query = 'SELECT * FROM users WHERE mobile_number = ? AND role = ?';  // Filter by both mobile_number and role
+//         // params = [mobile_number, role];
+//         const [rows] = await db.execute('SELECT * FROM collections WHERE farmer_id = ? AND shift = ? AND type = ?', [farmer_id, shift, type]);
+//         if (rows.length === 0) {
+//             return res.status(404).json({ success: false, message: 'Collection not found' });
+//         }
+//         res.status(200).json({result : 1, success: true, message : "sucess", data : rows});
+//     } catch (err) {
+//         console.error('Error fetching collection:', err);
+//         res.status(500).json({ message: 'Server error' });
+//     }
+// }
+
+async function getCollectionBytab(req, res) {
+  let { farmer_id, shift, type } = req.query;
+
+  if (!type) {
+    type = 'Both'; // default
+  }
+
+  console.log('Fetching collection with:', { farmer_id, shift, type });
+
+  try {
+    let query = 'SELECT * FROM collections WHERE 1=1';
+    const params = [];
+
+    if (farmer_id) {
+      query += ' AND farmer_id = ?';
+      params.push(farmer_id);
     }
+
+    if (shift) {
+      query += ' AND shift = ?';
+      params.push(shift);
+    }
+
+    if (type) {
+      query += ' AND type = ?';
+      params.push(type);
+    }
+
+    const [rows] = await db.execute(query, params);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Collection not found' });
+    }
+
+    res.status(200).json({
+      result: 1,
+      success: true,
+      message: 'Success',
+      data: rows
+    });
+
+  } catch (err) {
+    console.error('Error fetching collection:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
 }
+
 
 // Update collection
 async function updateCollection(req, res) {

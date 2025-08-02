@@ -293,11 +293,11 @@ async function getCollectionBytab(req, res) {
       // Push only the needed fields
       collectionData[dateKey].push({
         type: record.type,
-        qty: record.qty,
+        qty: record.quantity,
         fat: record.fat,
         snf: record.snf,
         rate: record.rate,
-        amount: record.amount,
+        amount: record.rate,
       });
     });
 

@@ -58,7 +58,7 @@ async function getCollectionBytab(req, res) {
 
         // query = 'SELECT * FROM users WHERE mobile_number = ? AND role = ?';  // Filter by both mobile_number and role
         // params = [mobile_number, role];
-        const [rows] = await db.execute('SELECT * FROM collections WHERE farmer_id = ? AND shift = ?', [farmer_id, shift]);
+        const [rows] = await db.execute('SELECT * FROM collections WHERE farmer_id = ? AND shift = ? AND type = ?', [farmer_id, shift, type]);
         if (rows.length === 0) {
             return res.status(404).json({ message: 'Collection not found' });
         }

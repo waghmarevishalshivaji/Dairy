@@ -60,9 +60,9 @@ async function getCollectionBytab(req, res) {
         // params = [mobile_number, role];
         const [rows] = await db.execute('SELECT * FROM collections WHERE farmer_id = ? AND shift = ? AND type = ?', [farmer_id, shift, type]);
         if (rows.length === 0) {
-            return res.status(404).json({ message: 'Collection not found' });
+            return res.status(404).json({ success: false, message: 'Collection not found' });
         }
-        res.status(200).json({result : 1, message : "sucess", data : rows});
+        res.status(200).json({result : 1, success: true, message : "sucess", data : rows});
     } catch (err) {
         console.error('Error fetching collection:', err);
         res.status(500).json({ message: 'Server error' });

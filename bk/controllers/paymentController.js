@@ -170,6 +170,10 @@ async function activatePayment(req, res) {
 
 async function getpayment(req, res) {
   let { farmer_id, datefrom, dateto, dairyid } = req.query;
+  const today = new Date();
+  const day = today.getDate();
+  const month = today.getMonth(); // 0-based
+  const year = today.getFullYear();
 
   try {
     let query = 'SELECT * FROM farmer_payments';
@@ -186,6 +190,34 @@ async function getpayment(req, res) {
     if (dairyid) {
       conditions.push('dairy_id = ?');
       params.push(dairyid);
+    }
+
+    if (!datefrom && !dateto) {
+      let startDate, endDate;
+
+      if (day >= 1 && day <= 10) {
+        // Last month's 21 → 30
+        const lastMonth = new Date(year, month - 1);
+        const y = lastMonth.getFullYear();
+        const m = lastMonth.getMonth() + 1; // 1-based for string format
+        startDate = `${y}-${String(m).padStart(2, '0')}-21`;
+        endDate = `${y}-${String(m).padStart(2, '0')}-30`;
+      } else if (day >= 11 && day <= 20) {
+        // This month's 1 → 10
+        const m = month + 1;
+        startDate = `${year}-${String(m).padStart(2, '0')}-01`;
+        endDate = `${year}-${String(m).padStart(2, '0')}-10`;
+      } else if (day >= 21) {
+        // This month's 11 → 20
+        const m = month + 1;
+        startDate = `${year}-${String(m).padStart(2, '0')}-11`;
+        endDate = `${year}-${String(m).padStart(2, '0')}-20`;
+      }
+
+      if (startDate && endDate) {
+        conditions.push('date BETWEEN ? AND ?');
+        params.push(startDate, endDate);
+      }
     }
 
     if (datefrom && dateto) {

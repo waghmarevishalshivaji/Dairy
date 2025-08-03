@@ -357,7 +357,7 @@ async function updateConfirm(req, res) {
 
 
 async function registefarmer(req, res) {
-  const { username, fullName, mobile_number, email, address, milkType, rateChart, panCard, aadhaarCard, bankName, accountNumber, ifscCode, role } = req.body;
+  const { username, fullName, mobile_number, email, address, milkType, rateChart, panCard, aadhaarCard, bankName, accountNumber, ifscCode, role, dairy_id } = req.body;
 
   // Check if all required fields are provided
   if (!username || !fullName || !mobile_number || !address || !milkType || !rateChart || !role) {
@@ -394,7 +394,8 @@ async function registefarmer(req, res) {
       'bankName',
       'accountNumber',
       'ifscCode',
-      'role'
+      'role',
+      'dairy_id'
     ];
 
     // Only include fields that exist in the request

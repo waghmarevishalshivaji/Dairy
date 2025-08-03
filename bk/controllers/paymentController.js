@@ -267,12 +267,134 @@ async function getpayment(req, res) {
 }
 
 
+// const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+
+// function formatDate(y, m, d) {
+//   return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+// }
+
+// async function getmonthpayment(req, res) {
+//   let { farmer_id, datefrom, dateto, dairyid } = req.query;
+//   const today = new Date();
+//   const day = today.getDate();
+//   const month = today.getMonth(); // 0-based
+//   const year = today.getFullYear();
+
+//   try {
+//     let query = 'SELECT * FROM farmer_payments';
+//     const conditions = [];
+//     const params = [];
+
+//     if (farmer_id) {
+//       farmer_id = farmer_id.trim();
+//       conditions.push('farmer_id = ?');
+//       params.push(farmer_id);
+//     }
+
+//     if (dairyid) {
+//       conditions.push('dairy_id = ?');
+//       params.push(dairyid);
+//     }
+
+//     let startDate = '';
+//     let endDate = '';
+//     let manualMonthMode = false;
+
+//     // Determine date range
+//     if (!datefrom && !dateto) {
+//       // Auto-range by day-of-month
+//       if (day >= 1 && day <= 10) {
+//         const lastMonth = new Date(year, month - 1);
+//         const y = lastMonth.getFullYear();
+//         const m = lastMonth.getMonth() + 1;
+//         startDate = `${y}-${String(m).padStart(2, '0')}-21`;
+//         endDate = `${y}-${String(m).padStart(2, '0')}-30`;
+//       } else if (day >= 11 && day <= 20) {
+//         const m = month + 1;
+//         startDate = `${year}-${String(m).padStart(2, '0')}-01`;
+//         endDate = `${year}-${String(m).padStart(2, '0')}-10`;
+//       } else {
+//         const m = month + 1;
+//         startDate = `${year}-${String(m).padStart(2, '0')}-11`;
+//         endDate = `${year}-${String(m).padStart(2, '0')}-20`;
+//       }
+
+//       if (startDate && endDate) {
+//         conditions.push('date BETWEEN ? AND ?');
+//         params.push(startDate, endDate);
+//       }
+//     } else {
+//       // Grouping mode for full month
+//       startDate = datefrom.trim();
+//       endDate = dateto.trim();
+//       manualMonthMode = true;
+
+//       conditions.push('date BETWEEN ? AND ?');
+//       params.push(startDate, endDate);
+//     }
+
+//     if (conditions.length > 0) {
+//       query += ' WHERE ' + conditions.join(' AND ');
+//     }
+
+//     console.log('SQL:', query);
+//     console.log('Params:', params);
+
+//     const [rows] = await db.execute(query, params);
+
+//     if (rows.length === 0) {
+//       return res.status(200).json({ success: true, message: 'No payments found', data: [] });
+//     }
+
+//     // Group rows into 3 periods if full month selected
+//     let group1 = [], group2 = [], group3 = [];
+
+//     if (manualMonthMode) {
+//       rows.forEach(row => {
+//         const d = new Date(row.date).getDate();
+//         if (d >= 1 && d <= 10) group1.push(row);
+//         else if (d >= 11 && d <= 20) group2.push(row);
+//         else if (d >= 21) group3.push(row);
+//       });
+
+//       return res.status(200).json({
+//         result: 1,
+//         success: true,
+//         message: 'Success',
+//         dateRange: { startDate, endDate },
+//         groups: {
+//           '1-10': { data: group1, total: group1.reduce((sum, r) => sum + r.amount_taken, 0) },
+//           '11-20': { data: group2, total: group2.reduce((sum, r) => sum + r.amount_taken, 0) },
+//           '21-30': { data: group3, total: group3.reduce((sum, r) => sum + r.amount_taken, 0) }
+//         }
+//       });
+//     }
+
+//     // Default non-grouped response
+//     res.status(200).json({
+//       result: 1,
+//       success: true,
+//       message: 'Success',
+//       dateRange: { startDate, endDate },
+//       sum: rows.reduce((acc, curr) => acc + curr.amount_taken, 0),
+//       data: rows
+//     });
+
+//   } catch (err) {
+//     console.error('Error fetching payments:', err);
+//     res.status(500).json({ success: false, message: 'Server error' });
+//   }
+// }
+
+const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+
+function formatDate(y, m, d) {
+  return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
 async function getmonthpayment(req, res) {
   let { farmer_id, datefrom, dateto, dairyid } = req.query;
   const today = new Date();
-  const day = today.getDate();
-  const month = today.getMonth(); // 0-based
-  const year = today.getFullYear();
 
   try {
     let query = 'SELECT * FROM farmer_payments';
@@ -280,48 +402,44 @@ async function getmonthpayment(req, res) {
     const params = [];
 
     if (farmer_id) {
-      farmer_id = farmer_id.trim();
       conditions.push('farmer_id = ?');
-      params.push(farmer_id);
+      params.push(farmer_id.trim());
     }
 
     if (dairyid) {
       conditions.push('dairy_id = ?');
-      params.push(dairyid);
+      params.push(dairyid.trim());
     }
 
     let startDate = '';
     let endDate = '';
-    let manualMonthMode = false;
+    let groupByMonth = false;
 
-    // Determine date range
-    if (!datefrom && !dateto) {
-      // Auto-range by day-of-month
-      if (day >= 1 && day <= 10) {
-        const lastMonth = new Date(year, month - 1);
-        const y = lastMonth.getFullYear();
-        const m = lastMonth.getMonth() + 1;
-        startDate = `${y}-${String(m).padStart(2, '0')}-21`;
-        endDate = `${y}-${String(m).padStart(2, '0')}-30`;
-      } else if (day >= 11 && day <= 20) {
-        const m = month + 1;
-        startDate = `${year}-${String(m).padStart(2, '0')}-01`;
-        endDate = `${year}-${String(m).padStart(2, '0')}-10`;
-      } else {
-        const m = month + 1;
-        startDate = `${year}-${String(m).padStart(2, '0')}-11`;
-        endDate = `${year}-${String(m).padStart(2, '0')}-20`;
-      }
-
-      if (startDate && endDate) {
-        conditions.push('date BETWEEN ? AND ?');
-        params.push(startDate, endDate);
-      }
-    } else {
-      // Grouping mode for full month
+    // Determine whether to apply manual grouping
+    if (datefrom && dateto) {
       startDate = datefrom.trim();
       endDate = dateto.trim();
-      manualMonthMode = true;
+      groupByMonth = true;
+
+      conditions.push('date BETWEEN ? AND ?');
+      params.push(startDate, endDate);
+    } else {
+      // Default behavior: auto-determine 10-day range based on today
+      const day = today.getDate();
+      const month = today.getMonth();
+      const year = today.getFullYear();
+
+      if (day <= 10) {
+        const lastMonth = new Date(year, month - 1);
+        startDate = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}-21`;
+        endDate = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}-30`;
+      } else if (day <= 20) {
+        startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+        endDate = `${year}-${String(month + 1).padStart(2, '0')}-10`;
+      } else {
+        startDate = `${year}-${String(month + 1).padStart(2, '0')}-11`;
+        endDate = `${year}-${String(month + 1).padStart(2, '0')}-20`;
+      }
 
       conditions.push('date BETWEEN ? AND ?');
       params.push(startDate, endDate);
@@ -331,41 +449,82 @@ async function getmonthpayment(req, res) {
       query += ' WHERE ' + conditions.join(' AND ');
     }
 
-    console.log('SQL:', query);
-    console.log('Params:', params);
-
     const [rows] = await db.execute(query, params);
 
     if (rows.length === 0) {
       return res.status(200).json({ success: true, message: 'No payments found', data: [] });
     }
 
-    // Group rows into 3 periods if full month selected
-    let group1 = [], group2 = [], group3 = [];
+    // Grouping logic per month in 10-day ranges
+    if (groupByMonth) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
 
-    if (manualMonthMode) {
-      rows.forEach(row => {
-        const d = new Date(row.date).getDate();
-        if (d >= 1 && d <= 10) group1.push(row);
-        else if (d >= 11 && d <= 20) group2.push(row);
-        else if (d >= 21) group3.push(row);
-      });
+      const groups = [];
+
+      for (
+        let d = new Date(start.getFullYear(), start.getMonth(), 1);
+        d <= end;
+        d.setMonth(d.getMonth() + 1)
+      ) {
+        const y = d.getFullYear();
+        const m = d.getMonth();
+        const lastDay = getDaysInMonth(y, m);
+
+        const range1 = {
+          label: `1-10 ${y}-${String(m + 1).padStart(2, '0')}`,
+          from: formatDate(y, m, 1),
+          to: formatDate(y, m, 10),
+          data: []
+        };
+        const range2 = {
+          label: `11-20 ${y}-${String(m + 1).padStart(2, '0')}`,
+          from: formatDate(y, m, 11),
+          to: formatDate(y, m, 20),
+          data: []
+        };
+        const range3 = {
+          label: `21-${lastDay} ${y}-${String(m + 1).padStart(2, '0')}`,
+          from: formatDate(y, m, 21),
+          to: formatDate(y, m, lastDay),
+          data: []
+        };
+
+        groups.push(range1, range2, range3);
+      }
+
+      // Fill buckets
+      for (const row of rows) {
+        const rowDate = new Date(row.date);
+        for (const group of groups) {
+          const from = new Date(group.from);
+          const to = new Date(group.to);
+          if (rowDate >= from && rowDate <= to) {
+            group.data.push(row);
+            break;
+          }
+        }
+      }
+
+      // Add totals
+      const resultGroups = groups.map(g => ({
+        label: g.label,
+        from: g.from,
+        to: g.to,
+        total: g.data.reduce((sum, r) => sum + r.amount_taken, 0),
+        data: g.data
+      }));
 
       return res.status(200).json({
         result: 1,
         success: true,
         message: 'Success',
-        dateRange: { startDate, endDate },
-        groups: {
-          '1-10': { data: group1, total: group1.reduce((sum, r) => sum + r.amount_taken, 0) },
-          '11-20': { data: group2, total: group2.reduce((sum, r) => sum + r.amount_taken, 0) },
-          '21-30': { data: group3, total: group3.reduce((sum, r) => sum + r.amount_taken, 0) }
-        }
+        grouped: resultGroups
       });
     }
 
-    // Default non-grouped response
-    res.status(200).json({
+    // If no grouping
+    return res.status(200).json({
       result: 1,
       success: true,
       message: 'Success',
@@ -379,6 +538,7 @@ async function getmonthpayment(req, res) {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 }
+
 
 
 

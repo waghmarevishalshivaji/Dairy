@@ -11,6 +11,9 @@ const confRoutes = require('./routes/confRoutes');
 const collectionsRoutes = require('./routes/collectionsRoutes');
 const paymentsRoutes = require('./routes/paymentRoutes');
 
+const path = require('path');
+const fs = require('fs');
+
 // Load environment variables
 dotenv.config();
 

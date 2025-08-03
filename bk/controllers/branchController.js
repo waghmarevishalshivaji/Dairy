@@ -94,15 +94,19 @@ async function getDairies(req, res) {
 }
 
 
-async function getDairyById(req, res) {
-    const { dairy_id } = req.params;
 
-    if (!dairy_id) {
+
+async function getDairyById(req, res) {
+
+    console.log("test")
+    const { id } = req.params;
+
+    if (!id) {
         return res.status(400).json({ message: 'Dairy ID is required' });
     }
 
     try {
-        const [rows] = await db.execute('SELECT * FROM dairy WHERE id = ?', [dairy_id]);
+        const [rows] = await db.execute('SELECT * FROM dairy WHERE id = ?', [id]);
 
         if (rows.length === 0) {
         return res.status(404).json({ message: 'Dairy record not found' });

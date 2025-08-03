@@ -267,6 +267,120 @@ async function getpayment(req, res) {
 }
 
 
+async function getmonthpayment(req, res) {
+  let { farmer_id, datefrom, dateto, dairyid } = req.query;
+  const today = new Date();
+  const day = today.getDate();
+  const month = today.getMonth(); // 0-based
+  const year = today.getFullYear();
+
+  try {
+    let query = 'SELECT * FROM farmer_payments';
+    const conditions = [];
+    const params = [];
+
+    if (farmer_id) {
+      farmer_id = farmer_id.trim();
+      conditions.push('farmer_id = ?');
+      params.push(farmer_id);
+    }
+
+    if (dairyid) {
+      conditions.push('dairy_id = ?');
+      params.push(dairyid);
+    }
+
+    let startDate = '';
+    let endDate = '';
+    let manualMonthMode = false;
+
+    // Determine date range
+    if (!datefrom && !dateto) {
+      // Auto-range by day-of-month
+      if (day >= 1 && day <= 10) {
+        const lastMonth = new Date(year, month - 1);
+        const y = lastMonth.getFullYear();
+        const m = lastMonth.getMonth() + 1;
+        startDate = `${y}-${String(m).padStart(2, '0')}-21`;
+        endDate = `${y}-${String(m).padStart(2, '0')}-30`;
+      } else if (day >= 11 && day <= 20) {
+        const m = month + 1;
+        startDate = `${year}-${String(m).padStart(2, '0')}-01`;
+        endDate = `${year}-${String(m).padStart(2, '0')}-10`;
+      } else {
+        const m = month + 1;
+        startDate = `${year}-${String(m).padStart(2, '0')}-11`;
+        endDate = `${year}-${String(m).padStart(2, '0')}-20`;
+      }
+
+      if (startDate && endDate) {
+        conditions.push('date BETWEEN ? AND ?');
+        params.push(startDate, endDate);
+      }
+    } else {
+      // Grouping mode for full month
+      startDate = datefrom.trim();
+      endDate = dateto.trim();
+      manualMonthMode = true;
+
+      conditions.push('date BETWEEN ? AND ?');
+      params.push(startDate, endDate);
+    }
+
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    console.log('SQL:', query);
+    console.log('Params:', params);
+
+    const [rows] = await db.execute(query, params);
+
+    if (rows.length === 0) {
+      return res.status(200).json({ success: true, message: 'No payments found', data: [] });
+    }
+
+    // Group rows into 3 periods if full month selected
+    let group1 = [], group2 = [], group3 = [];
+
+    if (manualMonthMode) {
+      rows.forEach(row => {
+        const d = new Date(row.date).getDate();
+        if (d >= 1 && d <= 10) group1.push(row);
+        else if (d >= 11 && d <= 20) group2.push(row);
+        else if (d >= 21) group3.push(row);
+      });
+
+      return res.status(200).json({
+        result: 1,
+        success: true,
+        message: 'Success',
+        dateRange: { startDate, endDate },
+        groups: {
+          '1-10': { data: group1, total: group1.reduce((sum, r) => sum + r.amount_taken, 0) },
+          '11-20': { data: group2, total: group2.reduce((sum, r) => sum + r.amount_taken, 0) },
+          '21-30': { data: group3, total: group3.reduce((sum, r) => sum + r.amount_taken, 0) }
+        }
+      });
+    }
+
+    // Default non-grouped response
+    res.status(200).json({
+      result: 1,
+      success: true,
+      message: 'Success',
+      dateRange: { startDate, endDate },
+      sum: rows.reduce((acc, curr) => acc + curr.amount_taken, 0),
+      data: rows
+    });
+
+  } catch (err) {
+    console.error('Error fetching payments:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+}
+
+
 
 
 
@@ -275,5 +389,6 @@ module.exports = {
     updatePayment,
     inactivatePayment,
     activatePayment,
-    getpayment
+    getpayment,
+    getmonthpayment
 };

@@ -490,10 +490,14 @@ async function updateUser(req, res) {
 
     const [result] = await db.query(sql, values);
 
+    const sqlget = `Select * from users WHERE id  = ?`;
+
+    const [resultget] = await db.query(sqlget, id);
+
     if (result.affectedRows > 0) {
-      res.json({ message: 'User updated successfully' });
+      res.json({ success: true, message: 'User updated successfully', data : resultget  });
     } else {
-      res.status(404).json({ message: 'User not found or no changes made' });
+      res.status(404).json({ success: false, message: 'User not found or no changes made'});
     }
 
   } catch (error) {

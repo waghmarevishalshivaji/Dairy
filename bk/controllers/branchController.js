@@ -106,7 +106,17 @@ async function getDairyById(req, res) {
     }
 
     try {
-        const [rows] = await db.execute('SELECT * FROM dairy WHERE id = ?', [id]);
+        // const [rows] = await db.execute('SELECT * FROM dairy WHERE id = ?', [id]);
+
+        const [rows] = await db.execute(`
+            SELECT 
+                d.*, 
+                u.*
+            FROM dairy d
+            LEFT JOIN users u ON d.createdby = u.id
+            WHERE d.id = ?
+            `, [id]);
+
 
         if (rows.length === 0) {
         return res.status(404).json({ message: 'Dairy record not found' });

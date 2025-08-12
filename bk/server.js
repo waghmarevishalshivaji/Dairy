@@ -10,6 +10,7 @@ const branchRoutes = require('./routes/branchRoutes');
 const confRoutes = require('./routes/confRoutes');
 const collectionsRoutes = require('./routes/collectionsRoutes');
 const paymentsRoutes = require('./routes/paymentRoutes');
+const billRoutes = require('./routes/billRoutes');
 
 const path = require('path');
 const fs = require('fs');
@@ -39,6 +40,7 @@ app.use('/branch', branchRoutes);
 app.use('/conf', confRoutes);
 app.use('/collections', collectionsRoutes);
 app.use('/payments', paymentsRoutes);
+app.use('/bill', billRoutes);
 
 // Starting the server
 const PORT = process.env.PORT || 5000;

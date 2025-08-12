@@ -8,5 +8,6 @@ router.get('/getmonthpayment', paymentController.getmonthpayment);
 router.put('/:id', paymentController.updatePayment);
 router.put('/inactivate/:id', paymentController.inactivatePayment);
 router.put('/activate/:id', paymentController.activatePayment);
+router.get('/getpaymentsbydairy', paymentController.getPaymentsByDairy);
 
 module.exports = router;

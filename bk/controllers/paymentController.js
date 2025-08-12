@@ -267,6 +267,104 @@ async function getpayment(req, res) {
 }
 
 
+async function getPaymentsByDairy(req, res) {
+  let { datefrom, dateto, dairyid } = req.query;
+  const today = new Date();
+  const day = today.getDate();
+  const month = today.getMonth(); // 0-based
+  const year = today.getFullYear();
+
+  try {
+    if (!dairyid) {
+      return res.status(400).json({ success: false, message: "dairyid is required" });
+    }
+
+    let query = `
+      SELECT 
+        farmer_id, 
+        dairy_id, 
+        SUM(amount_taken) AS total_amount, 
+        MIN(date) AS first_date, 
+        MAX(date) AS last_date
+      FROM farmer_payments
+    `;
+    const conditions = ["dairy_id = ?"];
+    const params = [dairyid];
+
+    let stDate, endDate = "";
+
+    // Default date ranges based on current day
+    if (!datefrom && !dateto) {
+      let startDate, endDateCalc;
+
+      if (day >= 1 && day <= 10) {
+        const lastMonth = new Date(year, month - 1);
+        const y = lastMonth.getFullYear();
+        const m = lastMonth.getMonth() + 1;
+        startDate = `${y}-${String(m).padStart(2, "0")}-21`;
+        endDateCalc = `${y}-${String(m).padStart(2, "0")}-30`;
+      } else if (day >= 11 && day <= 20) {
+        const m = month + 1;
+        startDate = `${year}-${String(m).padStart(2, "0")}-01`;
+        endDateCalc = `${year}-${String(m).padStart(2, "0")}-10`;
+      } else {
+        const m = month + 1;
+        startDate = `${year}-${String(m).padStart(2, "0")}-11`;
+        endDateCalc = `${year}-${String(m).padStart(2, "0")}-20`;
+      }
+      stDate = startDate.trim();
+      endDate = endDateCalc.trim();
+      conditions.push("date BETWEEN ? AND ?");
+      params.push(startDate, endDateCalc);
+    }
+
+    // If date range provided manually
+    if (datefrom && dateto) {
+      stDate = datefrom.trim();
+      endDate = dateto.trim();
+      conditions.push("date BETWEEN ? AND ?");
+      params.push(datefrom, dateto);
+    } else if (datefrom) {
+      stDate = datefrom.trim();
+      conditions.push("date >= ?");
+      params.push(datefrom);
+    } else if (dateto) {
+      endDate = dateto.trim();
+      conditions.push("date <= ?");
+      params.push(dateto);
+    }
+
+    // Build final query
+    query += " WHERE " + conditions.join(" AND ");
+    query += " GROUP BY farmer_id, dairy_id ORDER BY farmer_id";
+
+    console.log("SQL:", query);
+    console.log("Params:", params);
+
+    const [rows] = await db.execute(query, params);
+
+    if (rows.length === 0) {
+      return res.status(200).json({ success: true, message: "No payments found", data: [] });
+    }
+
+    res.status(200).json({
+      startDate: stDate,
+      endDate: endDate,
+      result: 1,
+      grand_total: rows.reduce((acc, curr) => acc + curr.total_amount, 0),
+      success: true,
+      message: "Success",
+      data: rows
+    });
+
+  } catch (err) {
+    console.error("Error fetching payments:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+}
+
+
+
 // const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
 
 // function formatDate(y, m, d) {
@@ -550,5 +648,6 @@ module.exports = {
     inactivatePayment,
     activatePayment,
     getpayment,
-    getmonthpayment
+    getmonthpayment,
+    getPaymentsByDairy
 };

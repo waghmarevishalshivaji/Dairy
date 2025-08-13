@@ -9,5 +9,6 @@ router.get('/', controller.getCollectionBytab);
 router.get('/:id', controller.getCollectionById);
 router.put('/:id', controller.updateCollection);
 router.delete('/:id', controller.deleteCollection);
+router.get('/collectionsummary', controller.getTodaysCollection);
 
 module.exports = router;

@@ -36,7 +36,7 @@ async function getCollectionById(req, res) {
 
     console.log('Fetching collection with ID:', id);
     try {
-        const [rows] = await db.execute('SELECT * FROM collections WHERE id', [id, shift]);
+        const [rows] = await db.execute('SELECT * FROM collections WHERE id', [id]);
         if (rows.length === 0) {
             return res.status(404).json({ message: 'Collection not found' });
         }
@@ -46,6 +46,59 @@ async function getCollectionById(req, res) {
         res.status(500).json({ message: 'Server error' });
     }
 }
+
+
+async function getTodaysCollection(req, res) {
+    let { type, shift, dairy_id } = req.query;
+
+    try {
+        // Base query
+        let query = `
+            SELECT 
+                SUM(quantity) AS total_quantity,
+                ROUND(AVG(fat), 2) AS avg_fat,
+                ROUND(AVG(snf), 2) AS avg_snf,
+                ROUND(AVG(clr), 2) AS avg_clr
+            FROM milk_collection
+            WHERE DATE(created_at) = CURDATE()
+        `;
+
+        const params = [];
+
+        // Optional filters
+        if (type) {
+            query += ` AND type = ?`;
+            params.push(type);
+        }
+        if (shift) {
+            query += ` AND shift = ?`;
+            params.push(shift);
+        }
+
+        if (dairy_id) {
+            query += ` AND dairy_id = ?`;
+            params.push(dairy_id);
+        }
+
+        
+
+        const [rows] = await db.execute(query, params);
+
+        if (!rows || rows.length === 0 || rows[0].total_quantity === null) {
+            return res.status(200).json({ success: true, message: 'No data for today', data: {} });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Today’s collection fetched successfully',
+            data: rows[0]
+        });
+    } catch (err) {
+        console.error('Error fetching today’s collection:', err);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+}
+
 
 // Get collection by ID
 // async function getCollectionBytab(req, res) {
@@ -373,4 +426,5 @@ module.exports = {
     updateCollection,
     deleteCollection,
     getCollectionBytab,
+    getTodaysCollection
 };

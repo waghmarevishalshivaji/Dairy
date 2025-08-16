@@ -9,7 +9,7 @@ router.post('/registerfarmer', authController.registefarmer);
 
 router.post('/registerfarmerid', authController.registefarmerid);
 
-router.post('/nextfarmerid', authController.getNextFarmerId);
+router.get('/nextfarmerid', authController.getNextFarmerId);
 
 router.post('/login', authController.login);
 

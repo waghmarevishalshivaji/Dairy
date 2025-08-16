@@ -482,16 +482,22 @@ async function getNextFarmerId(req, res) {
 
         // Get last inserted farmer_id for this dairy
         const [rows] = await db.execute(
-            "SELECT username FROM users WHERE dairy_id = ? AND role = ? ORDER BY id DESC LIMIT 1",
+            "SELECT * FROM users WHERE dairy_id = ? AND role = ? ORDER BY id DESC LIMIT 1",
             [dairy_id, 'Farmer']
         );
 
         let nextNumber = 1; // default first farmer
         if (rows.length > 0) {
             // Extract last 4 digits from farmer_id
-            const lastId = rows[0].user_id;
-            const lastNumber = parseInt(lastId.match(/\d+$/)[0]); // get number from end
-            nextNumber = lastNumber + 1;
+            console.log(rows[0])
+            const lastId = rows[0].username;
+            console.log(lastId)
+            // const lastNumber = parseInt(lastId.match(/\d+$/)[0]); // get number from end
+            const match = lastId.match(/(\d+)$/);
+            if (match) {
+                nextNumber = parseInt(match[1], 10) + 1;
+            }
+            // nextNumber = lastNumber + 1;
         }
 
         // Format new farmer id

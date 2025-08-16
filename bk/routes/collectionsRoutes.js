@@ -6,9 +6,11 @@ router.post('/', controller.createCollection);
 // router.get('/', controller.getAllCollections);
 router.get('/', controller.getCollectionBytab);
 // router.get('/all', controller.getCollection);
+router.get('/collectionsummary', controller.getTodaysCollection);
+router.get('/getTodayscollectionfarmer', controller.getTodaysCollectionfarmer);
 router.get('/:id', controller.getCollectionById);
 router.put('/:id', controller.updateCollection);
 router.delete('/:id', controller.deleteCollection);
-router.get('/collectionsummary', controller.getTodaysCollection);
+
 
 module.exports = router;

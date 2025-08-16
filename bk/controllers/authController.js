@@ -126,6 +126,11 @@ async function login(req, res) {
       const [dairyrows] = await db.execute(dairyquery, dairyparams);
       dairydata.id = dairyrows[0].id
       dairydata.name = dairyrows[0].name
+      dairydata.branchname = dairyrows[0].branchname
+      dairydata.ownername = dairyrows[0].ownername
+      dairydata.days = dairyrows[0].days
+      dairydata.villagename = dairyrows[0].villagename
+      dairydata.address = dairyrows[0].address
     }
 
     console.log("here===",rows[0])
@@ -466,6 +471,46 @@ async function registefarmerid(req, res) {
 } 
 
 
+// GET Next Farmer ID
+async function getNextFarmerId(req, res) {
+    try {
+        const { dairy_id, dairy_name } = req.query;
+
+        if (!dairy_id || !dairy_name) {
+            return res.status(400).json({ success: false, message: "Missing dairy_id or dairy_name" });
+        }
+
+        // Get last inserted farmer_id for this dairy
+        const [rows] = await db.execute(
+            "SELECT username FROM users WHERE dairy_id = ? AND role = ? ORDER BY id DESC LIMIT 1",
+            [dairy_id, 'Farmer']
+        );
+
+        let nextNumber = 1; // default first farmer
+        if (rows.length > 0) {
+            // Extract last 4 digits from farmer_id
+            const lastId = rows[0].user_id;
+            const lastNumber = parseInt(lastId.match(/\d+$/)[0]); // get number from end
+            nextNumber = lastNumber + 1;
+        }
+
+        // Format new farmer id
+        const prefix = dairy_name.replace(/\s+/g, '').toUpperCase();
+        const nextFarmerId = `${prefix}${String(nextNumber).padStart(4, '0')}`;
+
+        return res.status(200).json({
+            success: true,
+            next_farmer_id: nextFarmerId
+        });
+
+    } catch (err) {
+        console.error("Error generating next farmer id:", err);
+        return res.status(500).json({ success: false, message: "Server error" });
+    }
+}
+
+
+
 async function updateUser(req, res) {
   const { id, ...updateFields } = req.body;
 
@@ -518,5 +563,6 @@ module.exports = {
     login, 
     registefarmer,
     registefarmerid,
-    updateUser
+    updateUser,
+    getNextFarmerId
 };

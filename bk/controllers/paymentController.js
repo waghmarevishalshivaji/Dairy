@@ -284,6 +284,7 @@ async function getPaymentsByDairy(req, res) {
     let query = `
       SELECT 
         farmer_id, 
+        farmer_name,
         dairy_id, 
         SUM(amount_taken) AS total_amount, 
         MIN(date) AS first_date, 

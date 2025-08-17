@@ -284,8 +284,8 @@ async function getPaymentsByDairy(req, res) {
     let query = `
       SELECT 
         farmer_id, 
-        farmer_name,
         dairy_id, 
+        farmer_name,
         SUM(amount_taken) AS total_amount, 
         MIN(date) AS first_date, 
         MAX(date) AS last_date
@@ -339,7 +339,7 @@ async function getPaymentsByDairy(req, res) {
 
     // Build final query
     query += " WHERE " + conditions.join(" AND ");
-    query += " GROUP BY farmer_id, dairy_id ORDER BY farmer_id";
+    query += " GROUP BY farmer_id, farmer_name, dairy_id ORDER BY farmer_id";
 
     console.log("SQL:", query);
     console.log("Params:", params);

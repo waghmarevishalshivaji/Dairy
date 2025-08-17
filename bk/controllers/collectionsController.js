@@ -411,7 +411,7 @@ async function getTodaysCollectionfarmer(req, res) {
 // }
 
 async function getCollectionBytab(req, res) {
-  let { farmer_id, shift, type } = req.query;
+  let { farmer_id, shift, type, date, dairy_id } = req.query;
 
   try {
     let query = 'SELECT coll.*, usr.fullName as fname FROM collections as coll LEFT JOIN users as usr ON usr.username = coll.farmer_id';
@@ -435,12 +435,12 @@ async function getCollectionBytab(req, res) {
     }
 
     if (date) {
-      conditions.push('date = ?');
+      conditions.push('DATE(coll.created_at) = ?');
       params.push(date);
     }
 
     if (dairy_id) {
-      conditions.push('dairy_id = ?');
+      conditions.push('coll.dairy_id = ?');
       params.push(dairy_id);
     }
 

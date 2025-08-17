@@ -4,7 +4,7 @@ async function getUserById(req, res) {
   const { id } = req.params;
 
   try {
-    const [rows] = await db.execute('SELECT usr.*, dr.*  FROM users LEFT JOIN dairy as dr ON dr.id = usr.dairy_id WHERE usr.id = ?', [id]);
+    const [rows] = await db.execute('SELECT usr.*, dr.*  FROM users as usr LEFT JOIN dairy as dr ON dr.id = usr.dairy_id WHERE usr.id = ?', [id]);
     if (rows.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }

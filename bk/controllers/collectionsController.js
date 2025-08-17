@@ -6,11 +6,14 @@ const bcrypt = require('bcryptjs');
 async function createCollection(req, res) {
     const { farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift } = req.body;
 
+    const now = new Date();
+    const istDateTime = now.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+
     try {
         const [result] = await db.execute(
-            `INSERT INTO collections (farmer_id, dairy_id,  type, quantity, fat, snf, clr, rate, shift)
+            `INSERT INTO collections (farmer_id, dairy_id,  type, quantity, fat, snf, clr, rate, shift, created_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift]
+            [farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, istDateTime]
         );
         res.status(201).json({ message: 'Collection added', id: result.insertId });
     } catch (err) {

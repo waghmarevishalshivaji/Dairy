@@ -100,6 +100,8 @@ async function getTodaysCollection(req, res) {
 
         
 
+        
+
         const [rows] = await db.execute(query, params);
 
 
@@ -431,6 +433,18 @@ async function getCollectionBytab(req, res) {
       conditions.push('coll.type = ?');
       params.push(type);
     }
+
+    if (date) {
+      conditions.push('date = ?');
+      params.push(date);
+    }
+
+    if (dairy_id) {
+      conditions.push('dairy_id = ?');
+      params.push(dairy_id);
+    }
+
+    
 
     if (conditions.length > 0) {
       query += ' WHERE ' + conditions.join(' AND ');

@@ -6,14 +6,31 @@ const bcrypt = require('bcryptjs');
 async function createCollection(req, res) {
     const { farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift } = req.body;
 
-    const now = new Date();
-    const istDateTime = now.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+    // const now = new Date();
+    // const istDateTime = now.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+
+    const currentDate = new Date();
+    const idtDateTime = currentDate.toLocaleString('en-US', {
+    timeZone: 'Asia/Jerusalem',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23' // Ensures 24-hour format
+    });
+
+    // To reformat the output to YYYY-MM-DD HH:mm:ss
+    const [datePart, timePart] = idtDateTime.split(', ');
+    const [month, day, year] = datePart.split('/');
+    const formattedIdtDateTime = `${year}-${month}-${day} ${timePart}`;
 
     try {
         const [result] = await db.execute(
             `INSERT INTO collections (farmer_id, dairy_id,  type, quantity, fat, snf, clr, rate, shift, created_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, istDateTime]
+            [farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, formattedIdtDateTime]
         );
         res.status(201).json({ message: 'Collection added', id: result.insertId });
     } catch (err) {

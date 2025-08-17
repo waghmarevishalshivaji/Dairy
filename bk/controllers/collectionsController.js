@@ -412,7 +412,7 @@ async function getCollectionBytab(req, res) {
   let { farmer_id, shift, type } = req.query;
 
   try {
-    let query = 'SELECT * FROM collections as coll LEFT JOIN users as usr ON usr.username = coll.farmer_id';
+    let query = 'SELECT *, use.fullname FROM collections as coll LEFT JOIN users as usr ON usr.username = coll.farmer_id';
     const conditions = [];
     const params = [];
 

@@ -12,7 +12,7 @@ async function createCollection(req, res) {
     try {
         const [result] = await db.execute(
             `INSERT INTO collections (farmer_id, dairy_id,  type, quantity, fat, snf, clr, rate, shift, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, istDateTime]
         );
         res.status(201).json({ message: 'Collection added', id: result.insertId });

@@ -160,6 +160,78 @@ async function updateDairy(req, res) {
     }
 }
 
+// PUT /api/dairy/:id
+async function updateDairydetails(req, res) {
+    const { id } = req.params;  // dairy id from URL
+    const { 
+        name, 
+        branchname, 
+        ownername, 
+        days, 
+        villagename, 
+        address 
+    } = req.body;
+
+    try {
+        // Build update query dynamically (only update passed fields)
+        let updates = [];
+        let params = [];
+
+        if (name) {
+            updates.push("name = ?");
+            params.push(name);
+        }
+        if (branchname) {
+            updates.push("branchname = ?");
+            params.push(branchname);
+        }
+        if (ownername) {
+            updates.push("ownername = ?");
+            params.push(ownername);
+        }
+        if (days !== undefined) {
+            updates.push("days = ?");
+            params.push(days);
+        }
+        if (villagename) {
+            updates.push("villagename = ?");
+            params.push(villagename);
+        }
+        if (address) {
+            updates.push("address = ?");
+            params.push(address);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ success: false, message: "No fields to update" });
+        }
+
+        params.push(id);
+
+        const query = `
+            UPDATE dairy
+            SET ${updates.join(", ")}
+            WHERE id = ?
+        `;
+
+        const [result] = await db.execute(query, params);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: "Dairy not found" });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Dairy updated successfully",
+        });
+
+    } catch (err) {
+        console.error("Error updating dairy:", err);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+}
+
+
 async function deleteDairy(req, res) {
     const { dairy_id } = req.params;
 
@@ -216,15 +288,12 @@ async function toggleDairyActive(req, res) {
 }
 
 
-  
-  
-  
-
 module.exports = {
     createDairy,
     getDairies,
     getDairyById,
     updateDairy,
     deleteDairy,
-    toggleDairyActive
+    toggleDairyActive,
+    updateDairydetails
 };

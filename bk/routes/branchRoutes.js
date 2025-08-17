@@ -8,5 +8,6 @@ router.get('/get', orgController.getDairies);
 // router.get('/:id', orgController.getDairyById);
 
 router.post('/update', orgController.getDairyById);
+router.post('/updateDairydetails', orgController.getDairyById);
 
 module.exports = router;

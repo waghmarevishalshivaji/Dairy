@@ -19,6 +19,8 @@ async function insertPayment(req, res) {
       'descriptions'
     ];
 
+    
+
     const requiredFields = ['date', 'dairy_id', 'farmer_id', 'payment_type'];
 
     // 1. Validate required fields

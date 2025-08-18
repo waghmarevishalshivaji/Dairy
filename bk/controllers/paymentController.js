@@ -225,6 +225,8 @@ async function getpayment(req, res) {
       }
     }
 
+    console.log(endDate)
+
     if (datefrom && dateto) {
       stDate = datefrom.trim()
       endDate = dateto.trim()
@@ -253,8 +255,8 @@ async function getpayment(req, res) {
     }
 
     res.status(200).json({
-      startDate: stDate,
-      endDate: endDate,
+      startDate: params[1],
+      endDate: params[2],
       result: 1,
       sum : rows.reduce((acc, curr) => acc + curr.amount_taken, 0),
       success: true,

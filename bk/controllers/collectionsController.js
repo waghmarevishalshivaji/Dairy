@@ -476,7 +476,7 @@ async function getCollectionBytab(req, res) {
     const [rows] = await db.execute(query, params);
 
     if (rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Collection not found' });
+      return res.status(200).json({ success: false, message: 'Collection not found' });
     }
 
     // Group records by formatted date

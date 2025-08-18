@@ -15,6 +15,23 @@ async function getUserById(req, res) {
   }
 }
 
+
+async function getUserBydairyId(req, res) {
+  const { dairyid } = req.query;
+  console.log(dairyid)
+  try {
+    const [rows] = await db.execute('SELECT usr.*, dr.*  FROM users as usr LEFT JOIN dairy as dr ON dr.id = usr.dairy_id WHERE usr.dairy_id = ?', [dairyid]);
+    if (rows.length === 0) {
+      return res.status(200).json({ success: false, message: "user not found" });
+    }
+    // res.status(200).json(rows);
+    return res.status(200).json({ success: true, message: "user found", data : rows });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
 // async function getUserByName(req, res) {
 //   const { username } = req.params;
 
@@ -60,5 +77,6 @@ async function getUserByName(req, res) {
 
 module.exports = {
     getUserById,
-    getUserByName
+    getUserByName,
+    getUserBydairyId
 };

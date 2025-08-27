@@ -730,7 +730,7 @@ async function getDairyBillSummary(req, res) {
       summary[p.farmer_id].net_payable =
         summary[p.farmer_id].milk_total -
         summary[p.farmer_id].total_deductions +
-        summary[p.farmer_id].total_received;
+        parseInt(summary[p.farmer_id].total_received);
     });
 
     // ---- Convert object → array ----

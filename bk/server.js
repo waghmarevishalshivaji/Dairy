@@ -10,7 +10,8 @@ const branchRoutes = require('./routes/branchRoutes');
 const confRoutes = require('./routes/confRoutes');
 const collectionsRoutes = require('./routes/collectionsRoutes');
 const paymentsRoutes = require('./routes/paymentRoutes');
-const billRoutes = require('./routes/billRoutes');
+// const billRoutes = require('./routes/billRoutes');
+const billRoutes = require('./routes/billingRoutes');
 const reportRoutes = require('./routes/reportsRoutes');
 
 const path = require('path');

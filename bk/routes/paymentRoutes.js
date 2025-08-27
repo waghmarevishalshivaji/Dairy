@@ -9,5 +9,6 @@ router.put('/:id', paymentController.updatePayment);
 router.put('/inactivate/:id', paymentController.inactivatePayment);
 router.put('/activate/:id', paymentController.activatePayment);
 router.get('/getpaymentsbydairy', paymentController.getPaymentsByDairy);
+router.get('/getdairybillsummary', paymentController.getDairyBillSummary);
 
 module.exports = router;

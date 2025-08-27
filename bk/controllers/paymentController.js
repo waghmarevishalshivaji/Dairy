@@ -643,6 +643,127 @@ async function getmonthpayment(req, res) {
 }
 
 
+async function getDairyBillSummary(req, res) {
+  let { dairyid, datefrom, dateto } = req.query;
+  if (!dairyid) {
+    return res.status(400).json({ success: false, message: "dairyid is required" });
+  }
+
+  try {
+    const conditions = ["dairy_id = ?"];
+    const params = [dairyid];
+    let stDate, endDate;
+
+    // ---- Date filter ----
+    if (datefrom && dateto) {
+      stDate = datefrom.trim();
+      endDate = dateto.trim();
+      conditions.push("DATE(created_at) BETWEEN ? AND ?");
+      params.push(stDate, endDate);
+    } else if (datefrom) {
+      stDate = datefrom.trim();
+      conditions.push("DATE(created_at) >= ?");
+      params.push(stDate);
+    } else if (dateto) {
+      endDate = dateto.trim();
+      conditions.push("DATE(created_at) <= ?");
+      params.push(endDate);
+    }
+
+    // ---- Collections Query ----
+    let collectionQuery = `
+      SELECT farmer_id, SUM(quantity*rate) as milk_total
+      FROM collections
+      WHERE ${conditions.join(" AND ")}
+      GROUP BY farmer_id
+    `;
+
+    // ---- Payments Query ----
+    let paymentQuery = `
+      SELECT farmer_id,
+             SUM(amount_taken) as total_deductions,
+             SUM(received) as total_received
+      FROM farmer_payments
+      WHERE dairy_id = ?
+    `;
+    const payParams = [dairyid];
+    if (stDate && endDate) {
+      paymentQuery += " AND date BETWEEN ? AND ?";
+      payParams.push(stDate, endDate);
+    } else if (stDate) {
+      paymentQuery += " AND date >= ?";
+      payParams.push(stDate);
+    } else if (endDate) {
+      paymentQuery += " AND date <= ?";
+      payParams.push(endDate);
+    }
+    paymentQuery += " GROUP BY farmer_id";
+
+    // ---- Run Queries ----
+    const [collections] = await db.execute(collectionQuery, params);
+    const [payments] = await db.execute(paymentQuery, payParams);
+
+    // ---- Merge by farmer ----
+    const summary = {};
+    collections.forEach(c => {
+      summary[c.farmer_id] = {
+        farmer_id: c.farmer_id,
+        milk_total: c.milk_total || 0,
+        total_deductions: 0,
+        total_received: 0,
+        net_payable: c.milk_total || 0
+      };
+    });
+
+    payments.forEach(p => {
+      if (!summary[p.farmer_id]) {
+        summary[p.farmer_id] = {
+          farmer_id: p.farmer_id,
+          milk_total: 0,
+          total_deductions: 0,
+          total_received: 0,
+          net_payable: 0
+        };
+      }
+      summary[p.farmer_id].total_deductions = p.total_deductions || 0;
+      summary[p.farmer_id].total_received = p.total_received || 0;
+      summary[p.farmer_id].net_payable =
+        summary[p.farmer_id].milk_total -
+        summary[p.farmer_id].total_deductions +
+        summary[p.farmer_id].total_received;
+    });
+
+    // ---- Convert object → array ----
+    const result = Object.values(summary);
+
+    // ---- Grand totals ----
+    const grand = result.reduce(
+      (acc, f) => {
+        acc.milk_total += f.milk_total;
+        acc.total_deductions += f.total_deductions;
+        acc.total_received += f.total_received;
+        acc.net_payable += f.net_payable;
+        return acc;
+      },
+      { milk_total: 0, total_deductions: 0, total_received: 0, net_payable: 0 }
+    );
+
+    res.status(200).json({
+      success: true,
+      dairy_id: dairyid,
+      startDate: stDate || null,
+      endDate: endDate || null,
+      farmers: result,
+      grandTotals: grand
+    });
+  } catch (err) {
+    console.error("Error in getDairyBillSummary:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+}
+
+
+
 
 
 
@@ -654,5 +775,6 @@ module.exports = {
     activatePayment,
     getpayment,
     getmonthpayment,
-    getPaymentsByDairy
+    getPaymentsByDairy,
+    getDairyBillSummary
 };

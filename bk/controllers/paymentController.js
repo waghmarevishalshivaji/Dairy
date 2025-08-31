@@ -873,16 +873,16 @@ async function getFarmerBillDetails(req, res) {
 
 async function updateFarmerBill(req, res) {
   try {
-    const { farmer_id, dairy_id, milk_total, total_advance, total_feed, total_other, total_received, net_payable } = req.body;
+    const { farmer_id, milk_total, total_advance, total_feed, total_other, total_received, net_payable } = req.body; //dairy_id
 
-    if (!farmer_id || !dairy_id) {
+    if (!farmer_id) { //|| !dairy_id
       return res.status(400).json({ success: false, message: "farmer_id and dairy_id are required" });
     }
 
     // Check if a bill exists
     const [[existing]] = await db.query(
-      `SELECT * FROM bills WHERE farmer_id=? AND dairy_id=? AND is_finalized=0 ORDER BY id DESC LIMIT 1`,
-      [farmer_id, dairy_id]
+      `SELECT * FROM bills WHERE farmer_id=?  AND is_finalized=0 ORDER BY id DESC LIMIT 1`, //AND dairy_id=?
+      [farmer_id] //dairy_id
     );
 
     const finalNet = net_payable || (Number(milk_total) - (Number(total_advance) + Number(total_feed) + Number(total_other)) + Number(total_received));
@@ -897,9 +897,9 @@ async function updateFarmerBill(req, res) {
       return res.json({ success: true, message: "Farmer bill updated", bill_id: existing.id });
     } else {
       const [result] = await db.query(
-        `INSERT INTO bills (farmer_id, dairy_id, milk_total, advance_total, feed_total, other_total, received_total, net_payable, status, is_finalized)
+        `INSERT INTO bills (farmer_id, milk_total, advance_total, feed_total, other_total, received_total, net_payable, status, is_finalized)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)`,
-        [farmer_id, dairy_id, milk_total, total_advance, total_feed, total_other, total_received, finalNet]
+        [farmer_id, milk_total, total_advance, total_feed, total_other, total_received, finalNet]
       );
       return res.json({ success: true, message: "Farmer bill created", bill_id: result.insertId });
     }

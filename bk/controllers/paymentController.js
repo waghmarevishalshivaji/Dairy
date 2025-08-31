@@ -805,6 +805,72 @@ async function getDairyBillSummary(req, res) {
   }
 }
 
+async function getFarmerBillDetails(req, res) {
+  let { farmer_id, dairyid, datefrom, dateto } = req.query;
+
+  if (!farmer_id || !dairyid) {
+    return res.status(400).json({ success: false, message: "farmer_id and dairyid required" });
+  }
+
+  try {
+    const params = [farmer_id, dairyid];
+    let dateFilter = "";
+
+    if (datefrom && dateto) {
+      dateFilter = " AND DATE(created_at) BETWEEN ? AND ?";
+      params.push(datefrom, dateto);
+    }
+
+    // collections
+    const [collections] = await db.query(
+      `SELECT id, date(created_at) as date, quantity, rate, (quantity*rate) as amount
+       FROM collections 
+       WHERE farmer_id=? AND dairy_id=? ${dateFilter}
+       ORDER BY created_at ASC`,
+      params
+    );
+
+    // payments
+    const [payments] = await db.query(
+      `SELECT id, date, payment_type, amount_taken, received, descriptions
+       FROM farmer_payments
+       WHERE farmer_id=? AND dairy_id=? ${dateFilter.replace("created_at", "date")}
+       ORDER BY date ASC`,
+      params
+    );
+
+    // category-wise breakdown
+    const paymentBreakdown = payments.reduce((acc, p) => {
+      const type = p.payment_type.toLowerCase();
+      if (!acc[type]) acc[type] = { amount_taken: 0, received: 0 };
+      acc[type].amount_taken += Number(p.amount_taken || 0);
+      acc[type].received += Number(p.received || 0);
+      return acc;
+    }, {});
+
+    res.json({
+      success: true,
+      farmer_id,
+      dairyid,
+      period: { from: datefrom, to: dateto },
+      collections,
+      payments,
+      paymentBreakdown,
+      totals: {
+        milk_total: collections.reduce((a, c) => a + Number(c.amount), 0),
+        total_advance: paymentBreakdown.advance?.amount_taken || 0,
+        total_feed: paymentBreakdown.feed?.amount_taken || 0,
+        total_other: paymentBreakdown.other?.amount_taken || 0,
+        total_received: payments.reduce((a, p) => a + Number(p.received || 0), 0),
+      }
+    });
+  } catch (err) {
+    console.error("Error in getFarmerBillDetails:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+}
+
+
 
 
 
@@ -819,5 +885,6 @@ module.exports = {
     getpayment,
     getmonthpayment,
     getPaymentsByDairy,
-    getDairyBillSummary
+    getDairyBillSummary,
+    getFarmerBillDetails
 };

@@ -910,13 +910,6 @@ async function updateFarmerBill(req, res) {
 }
 
 
-
-
-
-
-
-
-
 module.exports = {
     insertPayment,
     updatePayment,

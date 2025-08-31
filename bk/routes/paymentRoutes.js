@@ -11,5 +11,6 @@ router.put('/activate/:id', paymentController.activatePayment);
 router.get('/getpaymentsbydairy', paymentController.getPaymentsByDairy);
 router.get('/getdairybillsummary', paymentController.getDairyBillSummary);
 router.get('/getFarmerBillDetails', paymentController.getFarmerBillDetails);
+router.get('/getFarmerBillUpdate', paymentController.updateFarmerBill);
 
 module.exports = router;

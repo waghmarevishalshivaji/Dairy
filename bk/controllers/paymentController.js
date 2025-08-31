@@ -705,13 +705,56 @@ async function getDairyBillSummary(req, res) {
 
     // ---- Merge by farmer ----
     const summary = {};
+    // collections.forEach(c => {
+    //   summary[c.farmer_id] = {
+    //     farmer_id: c.farmer_id,
+    //     milk_total: c.milk_total || 0,
+    //     total_deductions: 0,
+    //     total_received: 0,
+    //     net_payable: c.milk_total || 0
+    //   };
+    // });
+
+    // payments.forEach(p => {
+    //   if (!summary[p.farmer_id]) {
+    //     summary[p.farmer_id] = {
+    //       farmer_id: p.farmer_id,
+    //       milk_total: 0,
+    //       total_deductions: 0,
+    //       total_received: 0,
+    //       net_payable: 0
+    //     };
+    //   }
+    //   summary[p.farmer_id].total_deductions = p.total_deductions || 0;
+    //   summary[p.farmer_id].total_received = p.total_received || 0;
+    //   summary[p.farmer_id].net_payable =
+    //     summary[p.farmer_id].milk_total -
+    //     summary[p.farmer_id].total_deductions +
+    //     parseInt(summary[p.farmer_id].total_received);
+    // });
+
+    // // ---- Convert object → array ----
+    // const result = Object.values(summary);
+
+    // // ---- Grand totals ----
+    // const grand = result.reduce(
+    //   (acc, f) => {
+    //     acc.milk_total += f.milk_total;
+    //     acc.total_deductions += f.total_deductions;
+    //     acc.total_received += f.total_received;
+    //     acc.net_payable += f.net_payable;
+    //     return acc;
+    //   },
+    //   { milk_total: 0, total_deductions: 0, total_received: 0, net_payable: 0 }
+    // );
+
     collections.forEach(c => {
       summary[c.farmer_id] = {
         farmer_id: c.farmer_id,
-        milk_total: c.milk_total || 0,
+        milk_total: Number(c.milk_total) || 0,
         total_deductions: 0,
         total_received: 0,
-        net_payable: c.milk_total || 0
+        net_payable: Number(c.milk_total) || 0
       };
     });
 
@@ -725,12 +768,12 @@ async function getDairyBillSummary(req, res) {
           net_payable: 0
         };
       }
-      summary[p.farmer_id].total_deductions = p.total_deductions || 0;
-      summary[p.farmer_id].total_received = p.total_received || 0;
+      summary[p.farmer_id].total_deductions = Number(p.total_deductions) || 0;
+      summary[p.farmer_id].total_received = Number(p.total_received) || 0;
       summary[p.farmer_id].net_payable =
         summary[p.farmer_id].milk_total -
         summary[p.farmer_id].total_deductions +
-        parseInt(summary[p.farmer_id].total_received);
+        summary[p.farmer_id].total_received;
     });
 
     // ---- Convert object → array ----
@@ -739,10 +782,10 @@ async function getDairyBillSummary(req, res) {
     // ---- Grand totals ----
     const grand = result.reduce(
       (acc, f) => {
-        acc.milk_total += f.milk_total;
-        acc.total_deductions += f.total_deductions;
-        acc.total_received += f.total_received;
-        acc.net_payable += f.net_payable;
+        acc.milk_total += Number(f.milk_total) || 0;
+        acc.total_deductions += Number(f.total_deductions) || 0;
+        acc.total_received += Number(f.total_received) || 0;
+        acc.net_payable += Number(f.net_payable) || 0;
         return acc;
       },
       { milk_total: 0, total_deductions: 0, total_received: 0, net_payable: 0 }

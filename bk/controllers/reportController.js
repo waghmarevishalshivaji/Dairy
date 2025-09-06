@@ -328,25 +328,119 @@ async function getFarmerReport(req, res) {
   }
 }
 
+// async function getDairyReport(req, res) {
+//   try {
+//     const { dairyid, datefrom, dateto, type, shift } = req.query;
+//     if (!dairyid || !datefrom || !dateto) {
+//       return res.status(400).json({ message: "dairyid, datefrom, dateto required" });
+//     }
+
+//     // Collections joined with users
+//     const [collections] = await db.query(
+//       `SELECT c.farmer_id, c.type, c.shift,  u.fullName as farmer_name, SUM(c.quantity * c.rate) as milk_total
+//        FROM collections c
+//        JOIN users u ON u.username = c.farmer_id
+//        WHERE c.dairy_id=? AND milkType AND DATE(c.created_at) BETWEEN ? AND ?
+//        GROUP BY c.farmer_id, u.fullName, c.type, c.shift
+//        ORDER BY c.farmer_id`,
+//       [dairyid, type, datefrom, dateto]
+//     );
+
+//     // Payments joined with users
+//     const [payments] = await db.query(
+//       `SELECT p.farmer_id, u.fullName as farmer_name,
+//               SUM(p.amount_taken) as total_deductions,
+//               SUM(p.received) as total_received
+//        FROM farmer_payments p
+//        JOIN users u ON u.username = p.farmer_id
+//        WHERE p.dairy_id=? AND DATE(p.date) BETWEEN ? AND ?
+//        GROUP BY p.farmer_id, u.fullName
+//        ORDER BY p.farmer_id`,
+//       [dairyid, datefrom, dateto]
+//     );
+
+//     // Merge farmer data
+//     const farmerMap = {};
+//     collections.forEach(c => {
+//       farmerMap[c.farmer_id] = {
+//         farmer_id: c.farmer_id,
+//         farmer_name: c.farmer_name,
+//         type: c.type,
+//         shift: c.shift,
+//         milk_total: Number(c.milk_total) || 0,
+//         total_deductions: 0,
+//         total_received: 0,
+//         net_payable: Number(c.milk_total) || 0
+//       };
+//     });
+
+//     payments.forEach(p => {
+//       if (!farmerMap[p.farmer_id]) {
+//         farmerMap[p.farmer_id] = {
+//           farmer_id: p.farmer_id,
+//           farmer_name: p.farmer_name,
+//           type: null,
+//           shift: null,
+//           milk_total: 0,
+//           total_deductions: 0,
+//           total_received: 0,
+//           net_payable: 0
+//         };
+//       }
+//       farmerMap[p.farmer_id].total_deductions = Number(p.total_deductions) || 0;
+//       farmerMap[p.farmer_id].total_received = Number(p.total_received) || 0;
+//       farmerMap[p.farmer_id].net_payable =
+//         farmerMap[p.farmer_id].milk_total -
+//         farmerMap[p.farmer_id].total_deductions +
+//         farmerMap[p.farmer_id].total_received;
+//     });
+
+//     const farmers = Object.values(farmerMap);
+
+//     // Grand totals
+//     const grandTotals = farmers.reduce(
+//       (acc, f) => {
+//         acc.milk_total += f.milk_total;
+//         acc.total_deductions += f.total_deductions;
+//         acc.total_received += f.total_received;
+//         acc.net_payable += f.net_payable;
+//         return acc;
+//       },
+//       { milk_total: 0, total_deductions: 0, total_received: 0, net_payable: 0 }
+//     );
+
+//     res.json({
+//       dairy_id: dairyid,
+//       period: { from: datefrom, to: dateto },
+//       farmers,
+//       grandTotals
+//     });
+//   } catch (err) {
+//     console.error("Error generating dairy report:", err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// }
+
 async function getDairyReport(req, res) {
   try {
-    const { dairyid, datefrom, dateto, type, shift } = req.query;
+    const { dairyid, type, shift, datefrom, dateto } = req.query;
     if (!dairyid || !datefrom || !dateto) {
       return res.status(400).json({ message: "dairyid, datefrom, dateto required" });
     }
 
-    // Collections joined with users
+    // Collections grouped by farmer+type+shift
     const [collections] = await db.query(
-      `SELECT c.farmer_id, c.type, c.shift,  u.fullName as farmer_name, SUM(c.quantity * c.rate) as milk_total
+      `SELECT c.farmer_id, c.type, c.shift, u.fullName as farmer_name,
+              SUM(c.quantity * c.rate) as milk_total
        FROM collections c
        JOIN users u ON u.username = c.farmer_id
-       WHERE c.dairy_id=? AND milkType AND DATE(c.created_at) BETWEEN ? AND ?
+       WHERE c.dairy_id=? AND type=? AND shift=? AND DATE(c.created_at) BETWEEN ? AND ?
        GROUP BY c.farmer_id, u.fullName, c.type, c.shift
        ORDER BY c.farmer_id`,
-      [dairyid, type, datefrom, dateto]
+      [dairyid, type, shift, datefrom, dateto]
     );
 
-    // Payments joined with users
+    // Payments grouped by farmer
     const [payments] = await db.query(
       `SELECT p.farmer_id, u.fullName as farmer_name,
               SUM(p.amount_taken) as total_deductions,
@@ -359,41 +453,48 @@ async function getDairyReport(req, res) {
       [dairyid, datefrom, dateto]
     );
 
-    // Merge farmer data
-    const farmerMap = {};
-    collections.forEach(c => {
-      farmerMap[c.farmer_id] = {
+    // Build payment map
+    const paymentMap = {};
+    payments.forEach(p => {
+      paymentMap[p.farmer_id] = {
+        farmer_name: p.farmer_name,
+        total_deductions: Number(p.total_deductions) || 0,
+        total_received: Number(p.total_received) || 0
+      };
+    });
+
+    // Merge payments into each collection row
+    const farmers = collections.map(c => {
+      const pay = paymentMap[c.farmer_id] || { total_deductions: 0, total_received: 0 };
+      const milk_total = Number(c.milk_total) || 0;
+      return {
         farmer_id: c.farmer_id,
         farmer_name: c.farmer_name,
         type: c.type,
         shift: c.shift,
-        milk_total: Number(c.milk_total) || 0,
-        total_deductions: 0,
-        total_received: 0,
-        net_payable: Number(c.milk_total) || 0
+        milk_total,
+        total_deductions: pay.total_deductions,
+        total_received: pay.total_received,
+        net_payable: milk_total - pay.total_deductions + pay.total_received
       };
     });
 
+    // Also include farmers who have only payments but no collections
     payments.forEach(p => {
-      if (!farmerMap[p.farmer_id]) {
-        farmerMap[p.farmer_id] = {
+      const exists = farmers.find(f => f.farmer_id === p.farmer_id);
+      if (!exists) {
+        farmers.push({
           farmer_id: p.farmer_id,
           farmer_name: p.farmer_name,
+          type: "N/A",
+          shift: "N/A",
           milk_total: 0,
-          total_deductions: 0,
-          total_received: 0,
-          net_payable: 0
-        };
+          total_deductions: p.total_deductions,
+          total_received: p.total_received,
+          net_payable: 0 - p.total_deductions + p.total_received
+        });
       }
-      farmerMap[p.farmer_id].total_deductions = Number(p.total_deductions) || 0;
-      farmerMap[p.farmer_id].total_received = Number(p.total_received) || 0;
-      farmerMap[p.farmer_id].net_payable =
-        farmerMap[p.farmer_id].milk_total -
-        farmerMap[p.farmer_id].total_deductions +
-        farmerMap[p.farmer_id].total_received;
     });
-
-    const farmers = Object.values(farmerMap);
 
     // Grand totals
     const grandTotals = farmers.reduce(
@@ -418,6 +519,7 @@ async function getDairyReport(req, res) {
     res.status(500).json({ message: "Server error" });
   }
 }
+
 
 
 

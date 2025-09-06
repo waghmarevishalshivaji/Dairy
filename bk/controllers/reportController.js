@@ -337,24 +337,24 @@ async function getDairyReport(req, res) {
 
     // Collections joined with users
     const [collections] = await db.query(
-      `SELECT c.farmer_id, u.full_name as farmer_name, SUM(c.quantity * c.rate) as milk_total
+      `SELECT c.farmer_id, u.fullName as farmer_name, SUM(c.quantity * c.rate) as milk_total
        FROM collections c
        JOIN users u ON u.username = c.farmer_id
        WHERE c.dairy_id=? AND DATE(c.created_at) BETWEEN ? AND ?
-       GROUP BY c.farmer_id, u.full_name
+       GROUP BY c.farmer_id, u.fullName
        ORDER BY c.farmer_id`,
       [dairyid, datefrom, dateto]
     );
 
     // Payments joined with users
     const [payments] = await db.query(
-      `SELECT p.farmer_id, u.full_name as farmer_name,
+      `SELECT p.farmer_id, u.fullName as farmer_name,
               SUM(p.amount_taken) as total_deductions,
               SUM(p.received) as total_received
        FROM farmer_payments p
        JOIN users u ON u.username = p.farmer_id
        WHERE p.dairy_id=? AND DATE(p.date) BETWEEN ? AND ?
-       GROUP BY p.farmer_id, u.full_name
+       GROUP BY p.farmer_id, u.fullName
        ORDER BY p.farmer_id`,
       [dairyid, datefrom, dateto]
     );

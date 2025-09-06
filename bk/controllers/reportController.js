@@ -330,20 +330,20 @@ async function getFarmerReport(req, res) {
 
 async function getDairyReport(req, res) {
   try {
-    const { dairyid, datefrom, dateto } = req.query;
+    const { dairyid, datefrom, dateto, type, shift } = req.query;
     if (!dairyid || !datefrom || !dateto) {
       return res.status(400).json({ message: "dairyid, datefrom, dateto required" });
     }
 
     // Collections joined with users
     const [collections] = await db.query(
-      `SELECT c.farmer_id, u.fullName as farmer_name, SUM(c.quantity * c.rate) as milk_total
+      `SELECT c.farmer_id, c.type, c.shift,  u.fullName as farmer_name, SUM(c.quantity * c.rate) as milk_total
        FROM collections c
        JOIN users u ON u.username = c.farmer_id
-       WHERE c.dairy_id=? AND DATE(c.created_at) BETWEEN ? AND ?
+       WHERE c.dairy_id=? AND milkType AND DATE(c.created_at) BETWEEN ? AND ?
        GROUP BY c.farmer_id, u.fullName
        ORDER BY c.farmer_id`,
-      [dairyid, datefrom, dateto]
+      [dairyid, type, datefrom, dateto]
     );
 
     // Payments joined with users
@@ -365,6 +365,8 @@ async function getDairyReport(req, res) {
       farmerMap[c.farmer_id] = {
         farmer_id: c.farmer_id,
         farmer_name: c.farmer_name,
+        type: c.type,
+        shift: c.shift,
         milk_total: Number(c.milk_total) || 0,
         total_deductions: 0,
         total_received: 0,

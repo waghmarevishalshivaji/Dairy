@@ -341,7 +341,7 @@ async function getDairyReport(req, res) {
        FROM collections c
        JOIN users u ON u.username = c.farmer_id
        WHERE c.dairy_id=? AND milkType AND DATE(c.created_at) BETWEEN ? AND ?
-       GROUP BY c.farmer_id, u.fullName
+       GROUP BY c.farmer_id, u.fullName, c.type, c.shift
        ORDER BY c.farmer_id`,
       [dairyid, type, datefrom, dateto]
     );

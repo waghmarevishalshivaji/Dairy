@@ -200,10 +200,10 @@ const getRatename = async (req, res) => {
 
 async function downloadRateById(req, res) {
   try {
-    const { id } = req.params;
+    const { name } = req.query;
 
     // Fetch one record
-    const [rows] = await db.query("SELECT * FROM rates WHERE id = ?", [id]);
+    const [rows] = await db.query("SELECT * FROM rates WHERE name = ?", [name]);
 
     if (!rows || rows.length === 0) {
       return res.status(404).json({ success: false, message: "Rate not found" });

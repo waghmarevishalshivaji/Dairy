@@ -66,7 +66,7 @@ router.post('/upload-image', uploadnew.single('image'), (req, res) => {
 router.post('/createrate', upload.single('csv'), confController.uploadRates);
 router.get('/get-rate', confController.getRate); // GET /get-rate?fat=3.5&snf=7.1
 router.get('/get-rate-names', confController.getRatename); // GET /get-rate?fat=3.5&snf=7.1
-router.get("/downloadrates/:id", confController.downloadRateById);
+router.get("/downloadrates", confController.downloadRateById);
 // router.post('/login', authController.login);
 
 // // OTP generation route

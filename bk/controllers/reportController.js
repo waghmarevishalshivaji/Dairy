@@ -585,16 +585,16 @@ async function getDairyReport(req, res) {
     payments.forEach(p => {
       const exists = farmers.find(f => f.farmer_id === p.farmer_id);
       if (!exists) {
-        farmers.push({
-          farmer_id: p.farmer_id,
-          farmer_name: p.farmer_name,
-          type: "N/A",
-          shift: "N/A",
-          milk_total: 0,
-          total_deductions: parseInt(p.total_deductions) || 0,
-          total_received: parseInt(p.total_received) || 0,
-          net_payable: 0 - (parseInt(p.total_deductions) || 0) + (parseInt(p.total_received) || 0)
-        });
+        // farmers.push({
+        //   farmer_id: p.farmer_id,
+        //   farmer_name: p.farmer_name,
+        //   type: "N/A",
+        //   shift: "N/A",
+        //   milk_total: 0,
+        //   total_deductions: parseInt(p.total_deductions) || 0,
+        //   total_received: parseInt(p.total_received) || 0,
+        //   net_payable: 0 - (parseInt(p.total_deductions) || 0) + (parseInt(p.total_received) || 0)
+        // });
       }
     });
 

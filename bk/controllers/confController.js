@@ -215,7 +215,7 @@ async function downloadRateById(req, res) {
 
     // Set headers for CSV download
     res.header("Content-Type", "text/csv");
-    res.attachment(`rate_${id}.csv`);
+    res.attachment(`rate_${name}.csv`);
     return res.send(csv);
   } catch (err) {
     console.error("Error exporting rate CSV:", err);

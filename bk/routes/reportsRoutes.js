@@ -4,5 +4,6 @@ const reportController = require('../controllers/reportController');
 
 router.get('/collection-report', reportController.getTodaysCollectionreport);
 router.get('/getFarmerReport', reportController.getFarmerReport);
+router.get('/getDairyReport', reportController.getDairyReport);
 
 module.exports = router;

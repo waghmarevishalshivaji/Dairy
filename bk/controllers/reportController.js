@@ -273,9 +273,66 @@ async function getTodaysCollectionreport(req, res) {
     }
 }
 
+async function getFarmerReport(req, res) {
+  try {
+    const { farmer_id, datefrom, dateto } = req.query;
+
+    if (!farmer_id || !datefrom || !dateto) {
+      return res.status(400).json({ message: "farmer_id, datefrom, dateto required" });
+    }
+
+    // Get farmer details from users
+    const [[farmer]] = await db.query(
+      "SELECT username, full_name FROM users WHERE username = ?",
+      [farmer_id]
+    );
+
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+
+    // Collections
+    const [collections] = await db.query(
+      `SELECT DATE(created_at) as date, quantity, rate, (quantity*rate) as amount
+       FROM collections
+       WHERE farmer_id=? AND DATE(created_at) BETWEEN ? AND ?
+       ORDER BY created_at ASC`,
+      [farmer_id, datefrom, dateto]
+    );
+
+    // Payments
+    const [payments] = await db.query(
+      `SELECT date, payment_type, amount_taken, received, descriptions
+       FROM farmer_payments
+       WHERE farmer_id=? AND DATE(date) BETWEEN ? AND ?
+       ORDER BY date ASC`,
+      [farmer_id, datefrom, dateto]
+    );
+
+    // Totals
+    const milk_total = collections.reduce((a, c) => a + Number(c.amount), 0);
+    const advance_total = payments.filter(p => p.payment_type === "advance").reduce((a, p) => a + Number(p.amount_taken), 0);
+    const feed_total = payments.filter(p => p.payment_type === "feed").reduce((a, p) => a + Number(p.amount_taken), 0);
+    const total_received = payments.reduce((a, p) => a + Number(p.received), 0);
+    const net_payable = milk_total - (advance_total + feed_total) + total_received;
+
+    res.json({
+      farmer_id: farmer.username,
+      farmer_name: farmer.full_name,
+      period: { from: datefrom, to: dateto },
+      collections,
+      payments,
+      totals: { milk_total, advance_total, feed_total, total_received, net_payable }
+    });
+  } catch (err) {
+    console.error("Error generating farmer report:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
+
 
 
 module.exports = {
     createRole,
-    getTodaysCollectionreport
+    getTodaysCollectionreport,
+    getFarmerReport
 };

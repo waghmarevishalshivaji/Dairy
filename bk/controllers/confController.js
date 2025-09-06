@@ -203,7 +203,7 @@ async function downloadRateById(req, res) {
     const { name } = req.query;
 
     // Fetch one record
-    const [rows] = await db.query("SELECT * FROM rates WHERE name = ?", [name]);
+    const [rows] = await db.query("SELECT * FROM rate WHERE name = ?", [name]);
 
     if (!rows || rows.length === 0) {
       return res.status(404).json({ success: false, message: "Rate not found" });

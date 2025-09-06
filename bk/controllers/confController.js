@@ -320,11 +320,59 @@ async function downloadRateMatrix(req, res) {
   }
 }
 
+async function previewRateMatrix(req, res) {
+  try {
+    const { organisation_id, type, name } = req.query;
+
+    if (!organisation_id || !type || !name) {
+      return res.status(400).json({ message: "organisation_id, type, name are required" });
+    }
+
+    // Fetch rates
+    const [rows] = await db.query(
+      `SELECT fat, snf, price 
+       FROM rate 
+       WHERE organisation_id=? AND type=? AND name=? 
+       ORDER BY fat ASC, snf ASC`,
+      [organisation_id, type, name]
+    );
+
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ message: "No rates found" });
+    }
+
+    // Extract unique FATs and SNFs
+    const fats = [...new Set(rows.map(r => Number(r.fat)))].sort((a, b) => a - b);
+    const snfs = [...new Set(rows.map(r => Number(r.snf)))].sort((a, b) => a - b);
+
+    // Build JSON matrix
+    const matrix = [];
+    const header = ["FAT/SNF", ...snfs];
+    matrix.push(header);
+
+    fats.forEach(fat => {
+      let row = [fat];
+      snfs.forEach(snf => {
+        const rate = rows.find(r => Number(r.fat) === fat && Number(r.snf) === snf);
+        row.push(rate ? rate.price : "");
+      });
+      matrix.push(row);
+    });
+
+    // Respond with JSON preview
+    res.json({ success: true, name, type, organisation_id, matrix });
+  } catch (err) {
+    console.error("Error previewing rate matrix:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
 
 module.exports = {
     uploadRates,
     getRate,
     getRatename,
     downloadRateById,
-    downloadRateMatrix
+    downloadRateMatrix,
+    previewRateMatrix
 };

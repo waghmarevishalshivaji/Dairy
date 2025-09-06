@@ -224,6 +224,51 @@ async function downloadRateById(req, res) {
 }
 
 
+// async function downloadRateMatrix(req, res) {
+//   try {
+//     const { organisation_id, type, name } = req.query;
+
+//     if (!organisation_id || !type || !name) {
+//       return res.status(400).json({ message: "organisation_id, type, name are required" });
+//     }
+
+//     // Fetch rates for org + type + name
+//     const [rows] = await db.query(
+//       `SELECT fat, snf, price 
+//        FROM rate 
+//        WHERE organisation_id=? AND type=? AND name=? 
+//        ORDER BY fat ASC, snf ASC`,
+//       [organisation_id, type, name]
+//     );
+
+//     if (!rows || rows.length === 0) {
+//       return res.status(404).json({ message: "No rates found" });
+//     }
+
+//     // Build matrix: { fat -> { snf -> price } }
+//     const fats = [...new Set(rows.map(r => r.fat))].sort((a,b) => a-b);
+//     const snfs = [...new Set(rows.map(r => r.snf))].sort((a,b) => a-b);
+
+//     let csv = "FAT/SNF," + snfs.join(",") + "\n";
+
+//     fats.forEach(fat => {
+//       let line = [fat];
+//       snfs.forEach(snf => {
+//         const rate = rows.find(r => r.fat === fat && r.snf === snf);
+//         line.push(rate ? rate.price : "");
+//       });
+//       csv += line.join(",") + "\n";
+//     });
+
+//     res.header("Content-Type", "text/csv");
+//     res.attachment(`${name}_${type}_rates.csv`);
+//     return res.send(csv);
+//   } catch (err) {
+//     console.error("Error exporting rate CSV:", err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// }
+
 async function downloadRateMatrix(req, res) {
   try {
     const { organisation_id, type, name } = req.query;
@@ -245,21 +290,24 @@ async function downloadRateMatrix(req, res) {
       return res.status(404).json({ message: "No rates found" });
     }
 
-    // Build matrix: { fat -> { snf -> price } }
-    const fats = [...new Set(rows.map(r => r.fat))].sort((a,b) => a-b);
-    const snfs = [...new Set(rows.map(r => r.snf))].sort((a,b) => a-b);
+    // Unique FATs and SNFs
+    const fats = [...new Set(rows.map(r => Number(r.fat)))].sort((a, b) => a - b);
+    const snfs = [...new Set(rows.map(r => Number(r.snf)))].sort((a, b) => a - b);
 
+    // Build header row
     let csv = "FAT/SNF," + snfs.join(",") + "\n";
 
+    // Build each FAT row
     fats.forEach(fat => {
       let line = [fat];
       snfs.forEach(snf => {
-        const rate = rows.find(r => r.fat === fat && r.snf === snf);
+        const rate = rows.find(r => Number(r.fat) === fat && Number(r.snf) === snf);
         line.push(rate ? rate.price : "");
       });
       csv += line.join(",") + "\n";
     });
 
+    // Send as CSV file
     res.header("Content-Type", "text/csv");
     res.attachment(`${name}_${type}_rates.csv`);
     return res.send(csv);

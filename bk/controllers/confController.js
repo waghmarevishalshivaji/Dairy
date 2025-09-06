@@ -4,6 +4,7 @@ const multer = require('multer');
 const csvParser = require('csv-parser');
 const fs = require('fs');
 const path = require('path');
+const { Parser } = require("json2csv");
 
 
 // Configure multer for file uploads
@@ -197,9 +198,35 @@ const getRatename = async (req, res) => {
   }
 };
 
+async function downloadRateById(req, res) {
+  try {
+    const { id } = req.params;
+
+    // Fetch one record
+    const [rows] = await db.query("SELECT * FROM rates WHERE id = ?", [id]);
+
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Rate not found" });
+    }
+
+    // Convert JSON → CSV
+    const json2csvParser = new Parser();
+    const csv = json2csvParser.parse(rows);
+
+    // Set headers for CSV download
+    res.header("Content-Type", "text/csv");
+    res.attachment(`rate_${id}.csv`);
+    return res.send(csv);
+  } catch (err) {
+    console.error("Error exporting rate CSV:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+}
+
 
 module.exports = {
     uploadRates,
     getRate,
-    getRatename
+    getRatename,
+    downloadRateById
 };

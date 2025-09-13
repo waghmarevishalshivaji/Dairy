@@ -223,7 +223,7 @@ async function getTodaysCollectionreport(req, res) {
         const records = rows.map((row) => {
             let code = "005"; // default bucket
 
-            if (row.fat < 3.8 || row.snf < 8.2) {
+            if (row.fat < 3.8 && row.snf < 8.2) {
                 code = "001";
             } else if (row.fat >= 3.8 && row.fat < 4.0 && row.snf >= 8.2 && row.snf < 8.5) {
                 code = "002";

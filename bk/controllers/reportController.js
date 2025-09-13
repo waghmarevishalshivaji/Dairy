@@ -222,17 +222,6 @@ async function getTodaysCollectionreport(req, res) {
 
         // 🔹 Assign code based on FAT & SNF
         const records = rows.map((row) => {
-            // let code = "005"; // default bucket
-
-            // if (row.fat < 3.8 && row.snf < 8.2) {
-            //     code = "001";
-            // } else if (row.fat >= 3.8 && row.fat < 4.0 && row.snf >= 8.2 && row.snf < 8.5) {
-            //     code = "002";
-            // } else if (row.fat >= 4.0 && row.fat < 4.2 && row.snf >= 8.5 && row.snf < 8.7) {
-            //     code = "003";
-            // } else if (row.fat >= 4.2 && row.snf >= 8.7) {
-            //     code = "004";
-            // }
 
             return {
                 code: row.farmer_id,
@@ -273,6 +262,78 @@ async function getTodaysCollectionreport(req, res) {
         res.status(500).json({ success: false, message: "Server error" });
     }
 }
+
+
+async function getDailyShiftReport(req, res) {
+  try {
+    const { dairyid, startDate, startShift, endDate, endShift, milkType } = req.query;
+    if (!dairyid || !startDate || !startShift || !endDate || !endShift) {
+      return res.status(400).json({
+        message: "dairyid, startDate, startShift, endDate, endShift required"
+      });
+    }
+
+    // Build WHERE dynamically
+    let where = `c.dairy_id=? AND DATE(c.created_at) BETWEEN ? AND ?`;
+    const params = [dairyid, startDate, endDate];
+
+    if (milkType) {
+      where += ` AND c.type=?`;
+      params.push(milkType);
+    }
+
+    // Query
+    const [rows] = await db.query(
+      `SELECT DATE(c.created_at) as date, c.shift, c.type,
+              SUM(c.quantity) as liters,
+              ROUND(AVG(c.fat),1) as fat,
+              ROUND(AVG(c.snf),1) as snf,
+              ROUND(AVG(c.clr),1) as clr,
+              ROUND(AVG(c.rate),1) as rate,
+              SUM(c.quantity * c.rate) as amount
+       FROM collections c
+       WHERE ${where}
+       GROUP BY DATE(c.created_at), c.shift, c.type
+       ORDER BY DATE(c.created_at), FIELD(c.shift, 'Morning','Evening')`,
+      params
+    );
+
+    // Filter according to startShift and endShift
+    const report = rows.filter(r => {
+      const dateStr = r.date.toISOString().split("T")[0]; // YYYY-MM-DD
+
+      if (dateStr === startDate) {
+        if (startShift === "Evening" && r.shift === "Morning") return false;
+      }
+      if (dateStr === endDate) {
+        if (endShift === "Morning" && r.shift === "Evening") return false;
+      }
+      return true;
+    }).map(r => ({
+      date: r.date,
+      shift: r.shift,
+      type: r.type,
+      liters: parseFloat(r.liters) || 0,
+      fat: parseFloat(r.fat) || 0,
+      snf: parseFloat(r.snf) || 0,
+      clr: parseFloat(r.clr) || 0,
+      rate: parseFloat(r.rate) || 0,
+      amount: parseFloat(r.amount) || 0
+    }));
+
+    res.json({
+      dairy_id: dairyid,
+      period: { startDate, startShift, endDate, endShift },
+      type: milkType || "All",
+      report
+    });
+  } catch (err) {
+    console.error("Error generating daily shift report:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
+
 
 async function getFarmerReport(req, res) {
   try {
@@ -632,5 +693,6 @@ module.exports = {
     createRole,
     getTodaysCollectionreport,
     getFarmerReport,
-    getDairyReport
+    getDairyReport,
+    getDailyShiftReport
 };

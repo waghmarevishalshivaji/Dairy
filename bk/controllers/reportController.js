@@ -200,6 +200,7 @@ async function getTodaysCollectionreport(req, res) {
         let detailQuery = `
             SELECT 
                 type,
+                farmer_id,
                 quantity,
                 fat,
                 snf,
@@ -221,20 +222,20 @@ async function getTodaysCollectionreport(req, res) {
 
         // 🔹 Assign code based on FAT & SNF
         const records = rows.map((row) => {
-            let code = "005"; // default bucket
+            // let code = "005"; // default bucket
 
-            if (row.fat < 3.8 && row.snf < 8.2) {
-                code = "001";
-            } else if (row.fat >= 3.8 && row.fat < 4.0 && row.snf >= 8.2 && row.snf < 8.5) {
-                code = "002";
-            } else if (row.fat >= 4.0 && row.fat < 4.2 && row.snf >= 8.5 && row.snf < 8.7) {
-                code = "003";
-            } else if (row.fat >= 4.2 && row.snf >= 8.7) {
-                code = "004";
-            }
+            // if (row.fat < 3.8 && row.snf < 8.2) {
+            //     code = "001";
+            // } else if (row.fat >= 3.8 && row.fat < 4.0 && row.snf >= 8.2 && row.snf < 8.5) {
+            //     code = "002";
+            // } else if (row.fat >= 4.0 && row.fat < 4.2 && row.snf >= 8.5 && row.snf < 8.7) {
+            //     code = "003";
+            // } else if (row.fat >= 4.2 && row.snf >= 8.7) {
+            //     code = "004";
+            // }
 
             return {
-                code,
+                code: row.farmer_id,
                 type: row.type,
                 quantity: parseFloat(row.quantity),
                 fat: parseFloat(row.fat),

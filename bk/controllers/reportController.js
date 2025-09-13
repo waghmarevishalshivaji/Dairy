@@ -277,7 +277,7 @@ async function getDailyShiftReport(req, res) {
     let where = `c.dairy_id=? AND DATE(c.created_at) BETWEEN ? AND ?`;
     const params = [dairyid, startDate, endDate];
 
-    if (milkType) {
+    if (milkType && milkType != 'All') {
       where += ` AND c.type=?`;
       params.push(milkType);
     }

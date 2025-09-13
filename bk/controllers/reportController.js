@@ -299,27 +299,61 @@ async function getDailyShiftReport(req, res) {
     );
 
     // Filter according to startShift and endShift
+    // const report = rows.filter(r => {
+    //   const dateStr = r.date.toISOString().split("T")[0]; // YYYY-MM-DD
+
+    //   if (dateStr === startDate) {
+    //     if (startShift === "Evening" && r.shift === "Morning") return false;
+    //   }
+    //   if (dateStr === endDate) {
+    //     if (endShift === "Morning" && r.shift === "Evening") return false;
+    //   }
+    //   return true;
+    // }).map(r => ({
+    //   date: r.date,
+    //   shift: r.shift,
+    //   type: r.type,
+    //   liters: parseFloat(r.liters) || 0,
+    //   fat: parseFloat(r.fat) || 0,
+    //   snf: parseFloat(r.snf) || 0,
+    //   clr: parseFloat(r.clr) || 0,
+    //   rate: parseFloat(r.rate) || 0,
+    //   amount: parseFloat(r.amount) || 0
+    // }));
+
+    // Filter rows according to startShift and endShift
     const report = rows.filter(r => {
       const dateStr = r.date.toISOString().split("T")[0]; // YYYY-MM-DD
 
+      // Case: same start and end date
+      if (startDate === endDate) {
+        if (startShift === "Morning" && endShift === "Evening") {
+          // include both morning and evening
+          return true;
+        }
+        if (startShift === "Morning" && endShift === "Morning") {
+          return r.shift === "Morning";
+        }
+        if (startShift === "Evening" && endShift === "Evening") {
+          return r.shift === "Evening";
+        }
+        if (startShift === "Evening" && endShift === "Morning") {
+          // invalid range: no records
+          return false;
+        }
+      }
+
+      // Normal range (different days)
       if (dateStr === startDate) {
         if (startShift === "Evening" && r.shift === "Morning") return false;
       }
       if (dateStr === endDate) {
         if (endShift === "Morning" && r.shift === "Evening") return false;
       }
+
       return true;
-    }).map(r => ({
-      date: r.date,
-      shift: r.shift,
-      type: r.type,
-      liters: parseFloat(r.liters) || 0,
-      fat: parseFloat(r.fat) || 0,
-      snf: parseFloat(r.snf) || 0,
-      clr: parseFloat(r.clr) || 0,
-      rate: parseFloat(r.rate) || 0,
-      amount: parseFloat(r.amount) || 0
-    }));
+    });
+
 
     res.json({
       dairy_id: dairyid,

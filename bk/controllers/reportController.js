@@ -263,27 +263,37 @@ async function getTodaysCollectionreport(req, res) {
     }
 }
 
-function normalizeDate(d) {
-  if (!d) return "";
-  if (typeof d === "string") return d; // already in YYYY-MM-DD
-  return d.toISOString().split("T")[0];
-}
+
+
 
 function isShiftInRange(startDate, startShift, endDate, endShift, rowDate, rowShift) {
-  const rowStr = typeof rowDate === "string" ? rowDate : rowDate.toISOString().split("T")[0];
+  const rowStr = typeof rowDate === "string" ? rowDate.split("T")[0] : rowDate.toISOString().split("T")[0];
 
-  // Same-day case
+  // If row is before start or after end → reject
+  if (rowStr < startDate || rowStr > endDate) return false;
+
+  // If only one day range
   if (startDate === endDate) {
-    if (startShift === "Morning" && endShift === "Evening") return true; // include both
+    if (startShift === "Morning" && endShift === "Evening") return true; // full day
     if (startShift === "Morning" && endShift === "Morning") return rowShift === "Morning";
     if (startShift === "Evening" && endShift === "Evening") return rowShift === "Evening";
-    if (startShift === "Evening" && endShift === "Morning") return false; // invalid
+    if (startShift === "Evening" && endShift === "Morning") return false; // invalid case
   }
 
-  // Multi-day case
-  if (rowStr === startDate && startShift === "Evening" && rowShift === "Morning") return false;
-  if (rowStr === endDate && endShift === "Morning" && rowShift === "Evening") return false;
+  // If multi-day range
+  if (rowStr === startDate) {
+    // starting day
+    if (startShift === "Morning") return true; // allow both Morning & Evening
+    if (startShift === "Evening") return rowShift === "Evening"; // skip Morning
+  }
 
+  if (rowStr === endDate) {
+    // ending day
+    if (endShift === "Evening") return true; // allow both Morning & Evening
+    if (endShift === "Morning") return rowShift === "Morning"; // skip Evening
+  }
+
+  // Any day strictly between start & end is fully included
   return true;
 }
 
@@ -292,20 +302,23 @@ async function getDailyShiftReport(req, res) {
   try {
     const { dairyid, startDate, startShift, endDate, endShift, milkType } = req.query;
     if (!dairyid || !startDate || !startShift || !endDate || !endShift) {
-      return res.status(400).json({ message: "dairyid, startDate, startShift, endDate, endShift required" });
+      return res
+        .status(400)
+        .json({ message: "dairyid, startDate, startShift, endDate, endShift required" });
     }
 
     // Build WHERE clause
     let where = `c.dairy_id=? AND DATE(c.created_at) BETWEEN ? AND ?`;
     const params = [dairyid, startDate, endDate];
-    if (milkType) {
+    if (milkType && milkType !== "All") {
       where += ` AND c.type=?`;
       params.push(milkType);
     }
 
-    // Query DB
+    // Query DB (per farmer)
     const [rows] = await db.query(
       `SELECT DATE(c.created_at) as date, c.shift, c.type,
+              c.farmer_id, u.fullName as farmer_name,
               SUM(c.quantity) as liters,
               ROUND(AVG(c.fat),1) as fat,
               ROUND(AVG(c.snf),1) as snf,
@@ -313,38 +326,102 @@ async function getDailyShiftReport(req, res) {
               ROUND(AVG(c.rate),1) as rate,
               SUM(c.quantity * c.rate) as amount
        FROM collections c
+       JOIN users u ON u.username = c.farmer_id
        WHERE ${where}
-       GROUP BY DATE(c.created_at), c.shift, c.type
-       ORDER BY DATE(c.created_at), FIELD(c.shift,'Morning','Evening')`,
+       GROUP BY DATE(c.created_at), c.shift, c.type, c.farmer_id, u.fullName
+       ORDER BY DATE(c.created_at), FIELD(c.shift,'Morning','Evening'), c.farmer_id`,
       params
     );
 
-    // Apply filter + map results
+    // Apply shift filter
     const report = rows
-      .filter(r => isShiftInRange(startDate, startShift, endDate, endShift, r.date, r.shift))
-      .map(r => ({
+      .filter((r) =>
+        isShiftInRange(startDate, startShift, endDate, endShift, r.date, r.shift)
+      )
+      .map((r) => ({
         date: r.date,
         shift: r.shift,
         type: r.type,
+        farmer_id: r.farmer_id,
+        farmer_name: r.farmer_name,
         liters: parseFloat(r.liters) || 0,
         fat: parseFloat(r.fat) || 0,
         snf: parseFloat(r.snf) || 0,
         clr: parseFloat(r.clr) || 0,
         rate: parseFloat(r.rate) || 0,
-        amount: parseFloat(r.amount) || 0
+        amount: parseFloat(r.amount) || 0,
       }));
 
     res.json({
       dairy_id: dairyid,
       period: { startDate, startShift, endDate, endShift },
       type: milkType || "All",
-      report
+      report,
     });
   } catch (err) {
     console.error("Error generating daily shift report:", err);
     res.status(500).json({ message: "Server error" });
   }
 }
+
+
+// async function getDailyShiftReport(req, res) {
+//   try {
+//     const { dairyid, startDate, startShift, endDate, endShift, milkType } = req.query;
+//     if (!dairyid || !startDate || !startShift || !endDate || !endShift) {
+//       return res.status(400).json({ message: "dairyid, startDate, startShift, endDate, endShift required" });
+//     }
+
+//     // Build WHERE clause
+//     let where = `c.dairy_id=? AND DATE(c.created_at) BETWEEN ? AND ?`;
+//     const params = [dairyid, startDate, endDate];
+//     if (milkType && milkType !== "All") {
+//       where += ` AND c.type=?`;
+//       params.push(milkType);
+//     }
+
+//     // Query DB
+//     const [rows] = await db.query(
+//       `SELECT DATE(c.created_at) as date, c.shift, c.type,
+//               SUM(c.quantity) as liters,
+//               ROUND(AVG(c.fat),1) as fat,
+//               ROUND(AVG(c.snf),1) as snf,
+//               ROUND(AVG(c.clr),1) as clr,
+//               ROUND(AVG(c.rate),1) as rate,
+//               SUM(c.quantity * c.rate) as amount
+//        FROM collections c
+//        WHERE ${where}
+//        GROUP BY DATE(c.created_at), c.shift, c.type
+//        ORDER BY DATE(c.created_at), FIELD(c.shift, 'Morning','Evening')`,
+//       params
+//     );
+
+//     // Apply filter + map results
+//     const report = rows
+//       .filter(r => isShiftInRange(startDate, startShift, endDate, endShift, r.date, r.shift))
+//       .map(r => ({
+//         date: r.date,
+//         shift: r.shift,
+//         type: r.type,
+//         liters: parseFloat(r.liters) || 0,
+//         fat: parseFloat(r.fat) || 0,
+//         snf: parseFloat(r.snf) || 0,
+//         clr: parseFloat(r.clr) || 0,
+//         rate: parseFloat(r.rate) || 0,
+//         amount: parseFloat(r.amount) || 0
+//       }));
+
+//     res.json({
+//       dairy_id: dairyid,
+//       period: { startDate, startShift, endDate, endShift },
+//       type: milkType || "All",
+//       report
+//     });
+//   } catch (err) {
+//     console.error("Error generating daily shift report:", err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// }
 
 
 

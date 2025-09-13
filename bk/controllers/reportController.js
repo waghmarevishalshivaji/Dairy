@@ -270,17 +270,19 @@ function normalizeDate(d) {
 }
 
 function isShiftInRange(startDate, startShift, endDate, endShift, rowDate, rowShift) {
-  const rowStr = normalizeDate(rowDate);
+  const rowStr = typeof rowDate === "string" ? rowDate : rowDate.toISOString().split("T")[0];
 
+  // Same-day case
   if (startDate === endDate) {
-    if (startShift === "Morning" && endShift === "Evening") return true; // both
+    if (startShift === "Morning" && endShift === "Evening") return true; // include both
     if (startShift === "Morning" && endShift === "Morning") return rowShift === "Morning";
     if (startShift === "Evening" && endShift === "Evening") return rowShift === "Evening";
     if (startShift === "Evening" && endShift === "Morning") return false; // invalid
-  } else {
-    if (rowStr === startDate && startShift === "Evening" && rowShift === "Morning") return false;
-    if (rowStr === endDate && endShift === "Morning" && rowShift === "Evening") return false;
   }
+
+  // Multi-day case
+  if (rowStr === startDate && startShift === "Evening" && rowShift === "Morning") return false;
+  if (rowStr === endDate && endShift === "Morning" && rowShift === "Evening") return false;
 
   return true;
 }

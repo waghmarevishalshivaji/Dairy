@@ -680,15 +680,12 @@ async function getDairyBillSummary(req, res) {
 
     // ---- Payments Query ----
     let paymentQuery = `
-      SELECT farmer_id,
-       SUM(received) as total_received,
-       SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) as advance,
-       SUM(CASE WHEN payment_type='cattle feed' THEN amount_taken ELSE 0 END) as cattle_feed,
-       SUM(CASE WHEN payment_type='Other1' THEN amount_taken ELSE 0 END) as other1,
-       SUM(CASE WHEN payment_type='Other2' THEN amount_taken ELSE 0 END) as other2,
-       SUM(amount_taken) as total_deductions
-      FROM farmer_payments
-      WHERE dairy_id = ?
+      SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) + 0 as advance,
+      SUM(CASE WHEN payment_type='cattle feed' THEN amount_taken ELSE 0 END) + 0 as cattle_feed,
+      SUM(CASE WHEN payment_type='Other1' THEN amount_taken ELSE 0 END) + 0 as other1,
+      SUM(CASE WHEN payment_type='Other2' THEN amount_taken ELSE 0 END) + 0 as other2,
+      SUM(amount_taken) + 0 as total_deductions,
+      SUM(received) + 0 as total_received
     `;
     const payParams = [dairyid];
     if (stDate && endDate) {
@@ -738,14 +735,16 @@ async function getDairyBillSummary(req, res) {
         };
       }
 
-      summary[p.farmer_id].total_received = Number(p.total_received) || 0;
-      summary[p.farmer_id].deductions = {
-        advance: Number(p.advance) || 0,
-        cattle_feed: Number(p.cattle_feed) || 0,
-        other1: Number(p.other1) || 0,
-        other2: Number(p.other2) || 0,
-        total: Number(p.total_deductions) || 0
-      };
+     summary[p.farmer_id].total_received = Number(p.total_received) || 0;
+     summary[p.farmer_id].deductions = {
+      advance: Number(p.advance) || 0,
+      cattle_feed: Number(p.cattle_feed) || 0,
+      other1: Number(p.other1) || 0,
+      other2: Number(p.other2) || 0,
+      total: Number(p.total_deductions) || 0
+    };
+
+    // summary[p.farmer_id].total_received = Number(p.total_received) || 0;
 
       summary[p.farmer_id].net_payable =
         summary[p.farmer_id].milk_total -
@@ -777,10 +776,21 @@ async function getDairyBillSummary(req, res) {
     const result = Object.values(summary);
 
     // ---- Grand totals ----
+    // const grand = result.reduce(
+    //   (acc, f) => {
+    //     acc.milk_total += Number(f.milk_total) || 0;
+    //     acc.total_deductions += Number(f.total_deductions) || 0;
+    //     acc.total_received += Number(f.total_received) || 0;
+    //     acc.net_payable += Number(f.net_payable) || 0;
+    //     return acc;
+    //   },
+    //   { milk_total: 0, total_deductions: 0, total_received: 0, net_payable: 0 }
+    // );
+
     const grand = result.reduce(
       (acc, f) => {
         acc.milk_total += Number(f.milk_total) || 0;
-        acc.total_deductions += Number(f.total_deductions) || 0;
+        acc.total_deductions += Number(f.deductions?.total || 0);
         acc.total_received += Number(f.total_received) || 0;
         acc.net_payable += Number(f.net_payable) || 0;
         return acc;

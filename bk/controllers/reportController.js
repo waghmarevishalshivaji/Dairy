@@ -263,11 +263,17 @@ async function getTodaysCollectionreport(req, res) {
     }
 }
 
+function normalizeDate(d) {
+  if (!d) return "";
+  if (typeof d === "string") return d; // already in YYYY-MM-DD
+  return d.toISOString().split("T")[0];
+}
+
 function isShiftInRange(startDate, startShift, endDate, endShift, rowDate, rowShift) {
-  const rowStr = rowDate.toISOString().split("T")[0];
+  const rowStr = normalizeDate(rowDate);
 
   if (startDate === endDate) {
-    if (startShift === "Morning" && endShift === "Evening") return true;
+    if (startShift === "Morning" && endShift === "Evening") return true; // both
     if (startShift === "Morning" && endShift === "Morning") return rowShift === "Morning";
     if (startShift === "Evening" && endShift === "Evening") return rowShift === "Evening";
     if (startShift === "Evening" && endShift === "Morning") return false; // invalid
@@ -278,6 +284,7 @@ function isShiftInRange(startDate, startShift, endDate, endShift, rowDate, rowSh
 
   return true;
 }
+
 
 async function getDailyShiftReport(req, res) {
   try {

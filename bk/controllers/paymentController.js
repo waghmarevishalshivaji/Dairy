@@ -679,26 +679,57 @@ async function getDairyBillSummary(req, res) {
     `;
 
     // ---- Payments Query ----
+    // let paymentQuery = `
+    //   SELECT farmer_id,
+    //    SUM(received) as total_received,
+    //    SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) as advance,
+    //    SUM(CASE WHEN payment_type='cattle feed' THEN amount_taken ELSE 0 END) as cattle_feed,
+    //    SUM(CASE WHEN payment_type='Other1' THEN amount_taken ELSE 0 END) as other1,
+    //    SUM(CASE WHEN payment_type='Other2' THEN amount_taken ELSE 0 END) as other2,
+    //    SUM(amount_taken) as total_deductions
+    //   FROM farmer_payments
+    //   WHERE dairy_id = ?
+    // `;
+    // const payParams = [dairyid];
+    // if (stDate && endDate) {
+    //   paymentQuery += " AND date BETWEEN ? AND ?";
+    //   payParams.push(stDate, endDate);
+    // } else if (stDate) {
+    //   paymentQuery += " AND date >= ?";
+    //   payParams.push(stDate);
+    // } else if (endDate) {
+    //   paymentQuery += " AND date <= ?";
+    //   payParams.push(endDate);
+    // }
+    // paymentQuery += " GROUP BY farmer_id";
+
     let paymentQuery = `
-      SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) + 0 as advance,
-      SUM(CASE WHEN payment_type='cattle feed' THEN amount_taken ELSE 0 END) + 0 as cattle_feed,
-      SUM(CASE WHEN payment_type='Other1' THEN amount_taken ELSE 0 END) + 0 as other1,
-      SUM(CASE WHEN payment_type='Other2' THEN amount_taken ELSE 0 END) + 0 as other2,
-      SUM(amount_taken) + 0 as total_deductions,
-      SUM(received) + 0 as total_received
-    `;
-    const payParams = [dairyid];
-    if (stDate && endDate) {
-      paymentQuery += " AND date BETWEEN ? AND ?";
-      payParams.push(stDate, endDate);
-    } else if (stDate) {
-      paymentQuery += " AND date >= ?";
-      payParams.push(stDate);
-    } else if (endDate) {
-      paymentQuery += " AND date <= ?";
-      payParams.push(endDate);
-    }
-    paymentQuery += " GROUP BY farmer_id";
+        SELECT farmer_id,
+              SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) as advance,
+              SUM(CASE WHEN payment_type='cattle feed' THEN amount_taken ELSE 0 END) as cattle_feed,
+              SUM(CASE WHEN payment_type='Other1' THEN amount_taken ELSE 0 END) as other1,
+              SUM(CASE WHEN payment_type='Other2' THEN amount_taken ELSE 0 END) as other2,
+              SUM(amount_taken) as total_deductions,
+              SUM(received) as total_received
+        FROM farmer_payments
+        WHERE dairy_id = ?
+      `;
+
+      const payParams = [dairyid];
+
+      if (stDate && endDate) {
+        paymentQuery += " AND date BETWEEN ? AND ?";
+        payParams.push(stDate, endDate);
+      } else if (stDate) {
+        paymentQuery += " AND date >= ?";
+        payParams.push(stDate);
+      } else if (endDate) {
+        paymentQuery += " AND date <= ?";
+        payParams.push(endDate);
+      }
+
+      paymentQuery += " GROUP BY farmer_id";
+
 
     // ---- Run Queries ----
     const [collections] = await db.execute(collectionQuery, params);

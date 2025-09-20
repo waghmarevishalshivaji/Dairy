@@ -23,6 +23,9 @@ router.post('/verify-otp', authController.verifyOTP);
 router.post('/reset-password', authController.resetPassword);
 
 
+router.post('/reset-password-username', authController.resetPasswordUsername);
+
+
 router.post('/confirm', authController.updateConfirm);
 
 

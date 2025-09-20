@@ -244,7 +244,7 @@ async function verifyOTP(req, res) {
 
         console.log(userrows)
 
-        const [rowsdairy] = await db.execute('SELECT d.*, usr.username FROM dairy as d LEFT JOIN userDairy as ud ON ud.dairy_id = d.id LEFT JOIN users as usr on usr.id = ud.user_id  WHERE d.createdby = ?', [userrows[0]['id']]);
+        const [rowsdairy] = await db.execute('SELECT d.*,  FROM dairy as d LEFT JOIN userDairy as ud ON ud.dairy_id = d.id LEFT JOIN users as usr on usr.id = ud.user_id  WHERE d.createdby = ?', [userrows[0]['id']]);
         return res.status(200).json({ message: 'List of dairy', success: true, data : rowsdairy });
       }
     }
@@ -292,6 +292,69 @@ async function resetPassword(req, res) {
 
     // After resetting the password, get user details
     const [userDetails] = await db.execute('SELECT * FROM users WHERE mobile_number = ?', [mobile_number]);
+
+    // Generate JWT token including user details
+    const token = jwt.sign(
+      {
+        userId: userDetails[0].id,
+        username: userDetails[0].username,
+        mobile_number: userDetails[0].mobile_number,
+        role: userDetails[0].role, // Include role in the token
+        organization: userDetails[0].organization // Optional, if needed
+      },
+      process.env.JWT_SECRET, // Replace with your secret
+      { expiresIn: '1h' } // Token expiration time
+    );
+
+    // Send back the user details along with the generated token
+    return res.status(200).json({
+      message: 'Password reset successfully',
+      success : true,
+      user: {
+        id: userDetails[0].id,
+        username: userDetails[0].username,
+        mobile_number: userDetails[0].mobile_number,
+        role: userDetails[0].role,
+        organization: userDetails[0].organization,
+      },
+      token,
+    });
+  } catch (err) {
+    console.error('Error resetting password:', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+}
+
+async function resetPasswordUsername(req, res) {
+  const { username, new_password } = req.body;
+
+  if (!username || !new_password) {
+    return res.status(400).json({ message: 'Mobile number and new password are required',success : false });
+  }
+
+  try {
+    // Query the database to find the user by mobile number
+    const [rows] = await db.execute('SELECT * FROM users WHERE username = ?', [username]);
+
+    if (rows.length === 0) {
+      return res.status(400).json({ message: 'Username number not found',success : false });
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(new_password, 10);
+
+    // Update the user's password in the database
+    const [updateResult] = await db.execute(
+      'UPDATE users SET password = ? WHERE username = ?',
+      [hashedPassword, username]
+    );
+
+    if (updateResult.affectedRows === 0) {
+      return res.status(400).json({ message: 'Failed to reset password',success : false });
+    }
+
+    // After resetting the password, get user details
+    const [userDetails] = await db.execute('SELECT * FROM users WHERE username = ?', [username]);
 
     // Generate JWT token including user details
     const token = jwt.sign(
@@ -570,5 +633,6 @@ module.exports = {
     registefarmer,
     registefarmerid,
     updateUser,
-    getNextFarmerId
+    getNextFarmerId,
+    resetPasswordUsername
 };

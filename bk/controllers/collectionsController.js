@@ -82,8 +82,19 @@ async function getTodaysCollection(req, res) {
         //     FROM milk_collection
         //     WHERE DATE(created_at) = CURDATE()
         // `;
+        // let query = `
+        //     SELECT 
+        //         SUM(quantity) AS total_quantity,
+        //         ROUND(AVG(fat), 2) AS avg_fat,
+        //         ROUND(AVG(snf), 2) AS avg_snf,
+        //         ROUND(AVG(clr), 2) AS avg_clr
+        //     FROM collections
+        //     WHERE DATE(created_at) = ?
+        // `;
+
         let query = `
             SELECT 
+                COUNT(DISTINCT farmer_id) AS total_farmers,
                 SUM(quantity) AS total_quantity,
                 ROUND(AVG(fat), 2) AS avg_fat,
                 ROUND(AVG(snf), 2) AS avg_snf,
@@ -120,7 +131,7 @@ async function getTodaysCollection(req, res) {
 
         
 
-        
+        console.log(params)
 
         const [rows] = await db.execute(query, params);
 

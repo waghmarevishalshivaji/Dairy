@@ -131,7 +131,7 @@ fs.createReadStream(filePath)
 
 
 const getRate = async (req, res) => {
-  const { fat, snf, orgid, name } = req.query;
+  const { fat, snf, orgid, name, type } = req.query;
 
   if (!fat || !snf) {
     return res.status(400).json({ message: 'Missing fat or snf' });
@@ -148,12 +148,14 @@ const getRate = async (req, res) => {
          AND snf BETWEEN ? AND ? 
          AND organisation_id = ?
          AND name = ?
+         AND type = ?
        LIMIT 1`,
       [
         fatFloat - 0.01, fatFloat + 0.01,
         snfFloat - 0.01, snfFloat + 0.01,
         orgid,
-        name
+        name,
+        type
       ]
     );
 

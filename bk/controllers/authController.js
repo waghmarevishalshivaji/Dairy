@@ -244,7 +244,7 @@ async function verifyOTP(req, res) {
 
         console.log(userrows)
 
-        const [rowsdairy] = await db.execute('SELECT d.*,  FROM dairy as d LEFT JOIN userDairy as ud ON ud.dairy_id = d.id LEFT JOIN users as usr on usr.id = ud.user_id  WHERE d.createdby = ?', [userrows[0]['id']]);
+        const [rowsdairy] = await db.execute('SELECT d.*, usr.username FROM dairy as d LEFT JOIN userDairy as ud ON ud.dairy_id = d.id LEFT JOIN users as usr on usr.id = ud.user_id  WHERE d.createdby = ?', [userrows[0]['id']]);
         return res.status(200).json({ message: 'List of dairy', success: true, data : rowsdairy });
       }
     }

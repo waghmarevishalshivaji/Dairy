@@ -499,11 +499,14 @@ async function getTodaysCollectionfarmer(req, res) {
     let lastpaydatestatus = "paid"
      // ---- Last payment date from bill ----
     const [lastPayRows] = await db.execute(
-      `SELECT MAX(date) as lastPayDate
-       FROM bill
-       WHERE dairy_id=? AND farmer_id=? AND status=?`,
-      [dairy_id, farmer_id, lastpaydatestatus]
+      `SELECT MAX(created_at) as lastPayDate
+       FROM bills
+       WHERE farmer_id=? AND status=?`,
+      [farmer_id, lastpaydatestatus]
     );
+
+    const lastPayDate = lastPayRows[0]?.lastPayDate || "NA";
+
 
     // ---- Prepare result ----
     const result = {

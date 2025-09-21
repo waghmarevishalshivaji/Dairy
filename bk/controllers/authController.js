@@ -406,7 +406,7 @@ async function updateConfirm(req, res) {
 
     // Update the 'confirm' column to true for the given user
     const [updateResult] = await db.execute(
-      'UPDATE users SET confirm = true WHERE id = ?',
+      'UPDATE users SET confirm = true WHERE username = ?',
       [user_id]
     );
 

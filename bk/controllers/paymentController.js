@@ -495,152 +495,273 @@ function formatDate(y, m, d) {
   return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
+// async function getmonthpayment(req, res) {
+//   let { farmer_id, datefrom, dateto, dairyid } = req.query;
+//   const today = new Date();
+
+//   try {
+//     let query = 'SELECT * FROM farmer_payments';
+//     const conditions = [];
+//     const params = [];
+
+//     if (farmer_id) {
+//       conditions.push('farmer_id = ?');
+//       params.push(farmer_id.trim());
+//     }
+
+//     if (dairyid) {
+//       conditions.push('dairy_id = ?');
+//       params.push(dairyid.trim());
+//     }
+
+//     let startDate = '';
+//     let endDate = '';
+//     let groupByMonth = false;
+
+//     // Determine whether to apply manual grouping
+//     if (datefrom && dateto) {
+//       startDate = datefrom.trim();
+//       endDate = dateto.trim();
+//       groupByMonth = true;
+
+//       conditions.push('date BETWEEN ? AND ?');
+//       params.push(startDate, endDate);
+//     } else {
+//       // Default behavior: auto-determine 10-day range based on today
+//       const day = today.getDate();
+//       const month = today.getMonth();
+//       const year = today.getFullYear();
+
+//       if (day <= 10) {
+//         const lastMonth = new Date(year, month - 1);
+//         startDate = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}-21`;
+//         endDate = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}-30`;
+//       } else if (day <= 20) {
+//         startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+//         endDate = `${year}-${String(month + 1).padStart(2, '0')}-10`;
+//       } else {
+//         startDate = `${year}-${String(month + 1).padStart(2, '0')}-11`;
+//         endDate = `${year}-${String(month + 1).padStart(2, '0')}-20`;
+//       }
+
+//       conditions.push('date BETWEEN ? AND ?');
+//       params.push(startDate, endDate);
+//     }
+
+//     if (conditions.length > 0) {
+//       query += ' WHERE ' + conditions.join(' AND ');
+//     }
+
+//     const [rows] = await db.execute(query, params);
+
+//     if (rows.length === 0) {
+//       return res.status(200).json({ success: true, message: 'No payments found', data: [] });
+//     }
+
+//     // Grouping logic per month in 10-day ranges
+//     if (groupByMonth) {
+//       const start = new Date(startDate);
+//       const end = new Date(endDate);
+
+//       const groups = [];
+
+//       for (
+//         let d = new Date(start.getFullYear(), start.getMonth(), 1);
+//         d <= end;
+//         d.setMonth(d.getMonth() + 1)
+//       ) {
+//         const y = d.getFullYear();
+//         const m = d.getMonth();
+//         const lastDay = getDaysInMonth(y, m);
+
+//         const range1 = {
+//           label: `1-10 ${y}-${String(m + 1).padStart(2, '0')}`,
+//           from: formatDate(y, m, 1),
+//           to: formatDate(y, m, 10),
+//           data: []
+//         };
+//         const range2 = {
+//           label: `11-20 ${y}-${String(m + 1).padStart(2, '0')}`,
+//           from: formatDate(y, m, 11),
+//           to: formatDate(y, m, 20),
+//           data: []
+//         };
+//         const range3 = {
+//           label: `21-${lastDay} ${y}-${String(m + 1).padStart(2, '0')}`,
+//           from: formatDate(y, m, 21),
+//           to: formatDate(y, m, lastDay),
+//           data: []
+//         };
+
+//         groups.push(range1, range2, range3);
+//       }
+
+//       // Fill buckets
+//       for (const row of rows) {
+//         const rowDate = new Date(row.date);
+//         for (const group of groups) {
+//           const from = new Date(group.from);
+//           const to = new Date(group.to);
+//           if (rowDate >= from && rowDate <= to) {
+//             group.data.push(row);
+//             break;
+//           }
+//         }
+//       }
+
+//       // Add totals
+//       const resultGroups = groups.map(g => ({
+//         label: g.label,
+//         from: g.from,
+//         to: g.to,
+//         total: g.data.reduce((sum, r) => sum + r.amount_taken, 0),
+//         data: g.data
+//       }));
+
+//       return res.status(200).json({
+//         result: 1,
+//         success: true,
+//         message: 'Success',
+//         grouped: resultGroups
+//       });
+//     }
+
+//     // If no grouping
+//     return res.status(200).json({
+//       result: 1,
+//       success: true,
+//       message: 'Success',
+//       dateRange: { startDate, endDate },
+//       sum: rows.reduce((acc, curr) => acc + curr.amount_taken, 0),
+//       data: rows
+//     });
+
+//   } catch (err) {
+//     console.error('Error fetching payments:', err);
+//     res.status(500).json({ success: false, message: 'Server error' });
+//   }
+// }
+
 async function getmonthpayment(req, res) {
-  let { farmer_id, datefrom, dateto, dairyid } = req.query;
+  let { farmer_id, datefrom, dateto } = req.query;
   const today = new Date();
 
   try {
-    let query = 'SELECT * FROM farmer_payments';
     const conditions = [];
     const params = [];
 
     if (farmer_id) {
-      conditions.push('farmer_id = ?');
+      conditions.push("farmer_id = ?");
       params.push(farmer_id.trim());
     }
 
-    if (dairyid) {
-      conditions.push('dairy_id = ?');
-      params.push(dairyid.trim());
-    }
+    // if (dairyid) {
+    //   conditions.push("dairy_id = ?");
+    //   params.push(dairyid.trim());
+    // }
 
-    let startDate = '';
-    let endDate = '';
+    let startDate = "";
+    let endDate = "";
     let groupByMonth = false;
 
-    // Determine whether to apply manual grouping
     if (datefrom && dateto) {
       startDate = datefrom.trim();
       endDate = dateto.trim();
       groupByMonth = true;
-
-      conditions.push('date BETWEEN ? AND ?');
+      conditions.push("date BETWEEN ? AND ?");
       params.push(startDate, endDate);
     } else {
-      // Default behavior: auto-determine 10-day range based on today
       const day = today.getDate();
       const month = today.getMonth();
       const year = today.getFullYear();
 
       if (day <= 10) {
         const lastMonth = new Date(year, month - 1);
-        startDate = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}-21`;
-        endDate = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}-30`;
+        startDate = `${lastMonth.getFullYear()}-${String(
+          lastMonth.getMonth() + 1
+        ).padStart(2, "0")}-21`;
+        endDate = `${lastMonth.getFullYear()}-${String(
+          lastMonth.getMonth() + 1
+        ).padStart(2, "0")}-30`;
       } else if (day <= 20) {
-        startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-        endDate = `${year}-${String(month + 1).padStart(2, '0')}-10`;
+        startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+        endDate = `${year}-${String(month + 1).padStart(2, "0")}-10`;
       } else {
-        startDate = `${year}-${String(month + 1).padStart(2, '0')}-11`;
-        endDate = `${year}-${String(month + 1).padStart(2, '0')}-20`;
+        startDate = `${year}-${String(month + 1).padStart(2, "0")}-11`;
+        endDate = `${year}-${String(month + 1).padStart(2, "0")}-20`;
       }
-
-      conditions.push('date BETWEEN ? AND ?');
+      conditions.push("date BETWEEN ? AND ?");
       params.push(startDate, endDate);
     }
 
+    let query = `
+      SELECT 
+        farmer_id,
+        SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) as advance,
+        SUM(CASE WHEN payment_type='cattle feed' THEN amount_taken ELSE 0 END) as cattle_feed,
+        SUM(CASE WHEN payment_type='Other1' THEN amount_taken ELSE 0 END) as other1,
+        SUM(CASE WHEN payment_type='Other2' THEN amount_taken ELSE 0 END) as other2,
+        SUM(amount_taken) as total_deductions,
+        SUM(received) as total_received
+      FROM farmer_payments
+    `;
+
     if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
+      query += " WHERE " + conditions.join(" AND ");
     }
+
+    query += " GROUP BY farmer_id";
 
     const [rows] = await db.execute(query, params);
 
     if (rows.length === 0) {
-      return res.status(200).json({ success: true, message: 'No payments found', data: [] });
+      return res
+        .status(200)
+        .json({ success: true, message: "No payments found", data: [] });
     }
 
-    // Grouping logic per month in 10-day ranges
-    if (groupByMonth) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
+    // Till-date balance for each farmer
+    for (const r of rows) {
+      const [milkTill] = await db.execute(
+        `SELECT SUM(quantity * rate) as milk_total
+         FROM collections WHERE farmer_id=? AND DATE(created_at) <= ?`,
+        [r.farmer_id, endDate]
+      );
 
-      const groups = [];
+      const [payTill] = await db.execute(
+        `SELECT SUM(amount_taken) as total_deductions, SUM(received) as total_received
+         FROM farmer_payments WHERE farmer_id=? AND DATE(date) <= ?`,
+        [r.farmer_id, endDate]
+      );
 
-      for (
-        let d = new Date(start.getFullYear(), start.getMonth(), 1);
-        d <= end;
-        d.setMonth(d.getMonth() + 1)
-      ) {
-        const y = d.getFullYear();
-        const m = d.getMonth();
-        const lastDay = getDaysInMonth(y, m);
+      const [billTill] = await db.execute(
+        `SELECT SUM(net_payable) as total_billed
+         FROM bills WHERE farmer_id=? AND status='paid' AND DATE(created_at) <= ?`,
+        [r.farmer_id, endDate]
+      );
 
-        const range1 = {
-          label: `1-10 ${y}-${String(m + 1).padStart(2, '0')}`,
-          from: formatDate(y, m, 1),
-          to: formatDate(y, m, 10),
-          data: []
-        };
-        const range2 = {
-          label: `11-20 ${y}-${String(m + 1).padStart(2, '0')}`,
-          from: formatDate(y, m, 11),
-          to: formatDate(y, m, 20),
-          data: []
-        };
-        const range3 = {
-          label: `21-${lastDay} ${y}-${String(m + 1).padStart(2, '0')}`,
-          from: formatDate(y, m, 21),
-          to: formatDate(y, m, lastDay),
-          data: []
-        };
+      const milk_total = Number(milkTill[0]?.milk_total) || 0;
+      const total_deductions_till = Number(payTill[0]?.total_deductions) || 0;
+      const total_received_till = Number(payTill[0]?.total_received) || 0;
+      const total_billed_till = Number(billTill[0]?.total_billed) || 0;
 
-        groups.push(range1, range2, range3);
-      }
-
-      // Fill buckets
-      for (const row of rows) {
-        const rowDate = new Date(row.date);
-        for (const group of groups) {
-          const from = new Date(group.from);
-          const to = new Date(group.to);
-          if (rowDate >= from && rowDate <= to) {
-            group.data.push(row);
-            break;
-          }
-        }
-      }
-
-      // Add totals
-      const resultGroups = groups.map(g => ({
-        label: g.label,
-        from: g.from,
-        to: g.to,
-        total: g.data.reduce((sum, r) => sum + r.amount_taken, 0),
-        data: g.data
-      }));
-
-      return res.status(200).json({
-        result: 1,
-        success: true,
-        message: 'Success',
-        grouped: resultGroups
-      });
+      r.remaining_balance =
+        milk_total - total_deductions_till + total_received_till - total_billed_till;
     }
 
-    // If no grouping
     return res.status(200).json({
       result: 1,
       success: true,
-      message: 'Success',
+      message: "Success",
       dateRange: { startDate, endDate },
-      sum: rows.reduce((acc, curr) => acc + curr.amount_taken, 0),
-      data: rows
+      data: rows,
     });
-
   } catch (err) {
-    console.error('Error fetching payments:', err);
-    res.status(500).json({ success: false, message: 'Server error' });
+    console.error("Error fetching payments:", err);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 }
+
 
 
 async function getDairyBillSummary(req, res) {

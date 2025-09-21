@@ -539,11 +539,11 @@ async function getDailyShiftReport(req, res) {
     }
 
     // Build datetime boundaries
-    let startDateTime = startShift === "Evening"
+    const startDateTime = startShift === "Evening"
       ? `${startDate} 12:00:00`
       : `${startDate} 00:00:00`;
 
-    let endDateTime = endShift === "Morning"
+    const endDateTime = endShift === "Morning"
       ? `${endDate} 12:00:00`
       : `${endDate} 23:59:59`;
 
@@ -555,7 +555,7 @@ async function getDailyShiftReport(req, res) {
       params.push(milkType);
     }
 
-    // Query DB
+    // Query DB (keep shift column intact)
     const [rows] = await db.query(
       `SELECT DATE(c.created_at) as date, c.shift, c.type,
               c.farmer_id, u.fullName as farmer_name,
@@ -574,18 +574,18 @@ async function getDailyShiftReport(req, res) {
     );
 
     // Format result
-    const report = rows.map((r) => ({
+    const report = rows.map(r => ({
       date: r.date,
       shift: r.shift,
       type: r.type,
       farmer_id: r.farmer_id,
       farmer_name: r.farmer_name,
-      liters: parseFloat(r.liters) || 0,
-      fat: parseFloat(r.fat) || 0,
-      snf: parseFloat(r.snf) || 0,
-      clr: parseFloat(r.clr) || 0,
-      rate: parseFloat(r.rate) || 0,
-      amount: parseFloat(r.amount) || 0,
+      liters: Number(r.liters) || 0,
+      fat: Number(r.fat) || 0,
+      snf: Number(r.snf) || 0,
+      clr: Number(r.clr) || 0,
+      rate: Number(r.rate) || 0,
+      amount: Number(r.amount) || 0,
     }));
 
     res.json({
@@ -599,6 +599,7 @@ async function getDailyShiftReport(req, res) {
     res.status(500).json({ message: "Server error" });
   }
 }
+
 
 
 

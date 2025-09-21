@@ -158,93 +158,93 @@ async function getTodaysCollection(req, res) {
     }
 }
 
-async function getTodaysCollectionfarmer(req, res) {
-    let { type, dairy_id, date, farmer_id } = req.query;
+// async function getTodaysCollectionfarmer(req, res) {
+//     let { type, dairy_id, date, farmer_id } = req.query;
 
-    try {
-        // Base query: group by shift to get both morning and evening
-        let query = `
-            SELECT 
-                shift,
-                SUM(quantity) AS total_quantity,
-                ROUND(AVG(fat), 2) AS avg_fat,
-                ROUND(AVG(snf), 2) AS avg_snf,
-                ROUND(AVG(clr), 2) AS avg_clr
-            FROM collections
-            WHERE DATE(created_at) = ?
-        `;
+//     try {
+//         // Base query: group by shift to get both morning and evening
+//         let query = `
+//             SELECT 
+//                 shift,
+//                 SUM(quantity) AS total_quantity,
+//                 ROUND(AVG(fat), 2) AS avg_fat,
+//                 ROUND(AVG(snf), 2) AS avg_snf,
+//                 ROUND(AVG(clr), 2) AS avg_clr
+//             FROM collections
+//             WHERE DATE(created_at) = ?
+//         `;
 
-        const params = [];
+//         const params = [];
 
-        // Date filter — if not given, default to current date
-        if (date) {
-            params.push(date); // expecting YYYY-MM-DD format
-        } else {
-            const today = new Date();
-            params.push(today.toISOString().slice(0, 10)); // YYYY-MM-DD
-        }
+//         // Date filter — if not given, default to current date
+//         if (date) {
+//             params.push(date); // expecting YYYY-MM-DD format
+//         } else {
+//             const today = new Date();
+//             params.push(today.toISOString().slice(0, 10)); // YYYY-MM-DD
+//         }
 
-        // Optional filters
-        if (type) {
-            query += ` AND type = ?`;
-            params.push(type);
-        }
-        if (dairy_id) {
-            query += ` AND dairy_id = ?`;
-            params.push(dairy_id);
-        }
-        if (farmer_id) {
-            query += ` AND farmer_id = ?`;
-            params.push(farmer_id);
-        }
+//         // Optional filters
+//         if (type) {
+//             query += ` AND type = ?`;
+//             params.push(type);
+//         }
+//         if (dairy_id) {
+//             query += ` AND dairy_id = ?`;
+//             params.push(dairy_id);
+//         }
+//         if (farmer_id) {
+//             query += ` AND farmer_id = ?`;
+//             params.push(farmer_id);
+//         }
 
-        query += ` GROUP BY shift ORDER BY shift`;
+//         query += ` GROUP BY shift ORDER BY shift`;
 
-        const [rows] = await db.execute(query, params);
+//         const [rows] = await db.execute(query, params);
 
-        // Count users in that dairy
-        // let query1 = `SELECT COUNT(id) as cnt FROM users WHERE dairy_id = ?`;
-        // const params1 = [dairy_id];
-        // const [rows1] = await db.execute(query1, params1);
+//         // Count users in that dairy
+//         // let query1 = `SELECT COUNT(id) as cnt FROM users WHERE dairy_id = ?`;
+//         // const params1 = [dairy_id];
+//         // const [rows1] = await db.execute(query1, params1);
 
-        if (!rows || rows.length === 0) {
-            return res.status(200).json({ 
-                success: true, 
-                message: 'No data for today', 
-                data: { morning: {}, evening: {} }
-                // user: rows1[0]
-            });
-        }
+//         if (!rows || rows.length === 0) {
+//             return res.status(200).json({ 
+//                 success: true, 
+//                 message: 'No data for today', 
+//                 data: { morning: {}, evening: {} }
+//                 // user: rows1[0]
+//             });
+//         }
 
-        // Format results into morning/evening explicitly
-        const result = { morning: {}, evening: {} };
-        rows.forEach(r => {
-            if (r.shift.toLowerCase() === 'morning') result.morning = r;
-            if (r.shift.toLowerCase() === 'evening') result.evening = r;
-        });
+//         // Format results into morning/evening explicitly
+//         const result = { morning: {}, evening: {} };
+//         rows.forEach(r => {
+//             if (r.shift.toLowerCase() === 'morning') result.morning = r;
+//             if (r.shift.toLowerCase() === 'evening') result.evening = r;
+//         });
 
-        result.total = "1000"
-        result.fincncialdesc = {};
-        result.fincncialdesc.advance = "2000"
-        result.fincncialdesc.cattlefeed = "3000"
-        result.fincncialdesc.fat = "3.6"
-        result.totalamount = "10000"
-        result.netamount = "12000"
-        result.lastpay = "15000"
-        result.totalqty = "1400"
-        result.dailyavg = "14"
+//         result.total = "1000"
+//         result.fincncialdesc = {};
+//         result.fincncialdesc.advance = "2000"
+//         result.fincncialdesc.cattlefeed = "3000"
+//         result.fincncialdesc.fat = "3.6"
+//         result.totalamount = "10000"
+//         result.netamount = "12000"
+//         result.lastpay = "15000"
+//         result.totalqty = "1400"
+//         result.dailyavg = "14"
 
-        res.status(200).json({
-            success: true,
-            message: 'Today’s collection fetched successfully',
-            data: result,
-            // user: rows1[0]
-        });
-    } catch (err) {
-        console.error('Error fetching today’s collection:', err);
-        res.status(500).json({ success: false, message: 'Server error' });
-    }
-}
+//         res.status(200).json({
+//             success: true,
+//             message: 'Today’s collection fetched successfully',
+//             data: result,
+//             // user: rows1[0]
+//         });
+//     } catch (err) {
+//         console.error('Error fetching today’s collection:', err);
+//         res.status(500).json({ success: false, message: 'Server error' });
+//     }
+// }
 
 
 
@@ -440,6 +440,144 @@ async function getTodaysCollectionfarmer(req, res) {
 //     res.status(500).json({ success: false, message: 'Server error' });
 //   }
 // }
+
+async function getTodaysCollectionfarmer(req, res) {
+  let { type, dairy_id, date, farmer_id } = req.query;
+
+  try {
+    if (!dairy_id || !farmer_id) {
+      return res
+        .status(400)
+        .json({ success: false, message: "dairy_id and farmer_id are required" });
+    }
+
+    // Date filter — default to today if not passed
+    const today = new Date();
+    const reportDate = date || today.toISOString().slice(0, 10); // YYYY-MM-DD
+
+    // ---- Collections grouped by shift ----
+    let query = `
+      SELECT 
+        shift,
+        SUM(quantity) AS total_quantity,
+        ROUND(AVG(fat), 2) AS avg_fat,
+        ROUND(AVG(snf), 2) AS avg_snf,
+        ROUND(AVG(clr), 2) AS avg_clr,
+        SUM(quantity * rate) AS total_amount
+      FROM collections
+      WHERE DATE(created_at) = ?
+        AND dairy_id = ?
+        AND farmer_id = ?
+    `;
+    const params = [reportDate, dairy_id, farmer_id];
+
+    if (type && type !== "All") {
+      query += ` AND type = ?`;
+      params.push(type);
+    }
+
+    query += ` GROUP BY shift ORDER BY shift`;
+
+    const [rows] = await db.execute(query, params);
+
+    // ---- Payments / deductions for that farmer on that day ----
+    const [paymentRows] = await db.execute(
+      `SELECT 
+         SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) AS advance,
+         SUM(CASE WHEN payment_type='cattle feed' THEN amount_taken ELSE 0 END) AS cattle_feed,
+         SUM(CASE WHEN payment_type='Other1' THEN amount_taken ELSE 0 END) AS other1,
+         SUM(CASE WHEN payment_type='Other2' THEN amount_taken ELSE 0 END) AS other2,
+         SUM(amount_taken) AS total_deductions,
+         SUM(received) AS total_received
+       FROM farmer_payments
+       WHERE dairy_id=? AND farmer_id=? AND DATE(date)=?`,
+      [dairy_id, farmer_id, reportDate]
+    );
+
+    const payments = paymentRows[0] || {};
+
+    // ---- Prepare result ----
+    const result = {
+      morning: {
+        shift: "Morning",
+        total_quantity: 0,
+        avg_fat: 0,
+        avg_snf: 0,
+        avg_clr: 0,
+        total_amount: 0,
+      },
+      evening: {
+        shift: "Evening",
+        total_quantity: 0,
+        avg_fat: 0,
+        avg_snf: 0,
+        avg_clr: 0,
+        total_amount: 0,
+      },
+    };
+
+    rows.forEach((r) => {
+      const entry = {
+        shift: r.shift,
+        total_quantity: Number(r.total_quantity) || 0,
+        avg_fat: Number(r.avg_fat) || 0,
+        avg_snf: Number(r.avg_snf) || 0,
+        avg_clr: Number(r.avg_clr) || 0,
+        total_amount: Number(r.total_amount) || 0,
+      };
+      if (r.shift.toLowerCase() === "morning") result.morning = entry;
+      if (r.shift.toLowerCase() === "evening") result.evening = entry;
+    });
+
+    // ---- Totals ----
+    const totalQty =
+      (result.morning.total_quantity || 0) +
+      (result.evening.total_quantity || 0);
+
+    const totalAmount =
+      (result.morning.total_amount || 0) +
+      (result.evening.total_amount || 0);
+
+    const dailyAvg =
+      totalQty > 0
+        ? (totalQty / 2).toFixed(2) // average per shift
+        : 0;
+
+    const deductions = {
+      advance: Number(payments.advance) || 0,
+      cattle_feed: Number(payments.cattle_feed) || 0,
+      other1: Number(payments.other1) || 0,
+      other2: Number(payments.other2) || 0,
+      total: Number(payments.total_deductions) || 0,
+    };
+
+    const netAmount = totalAmount - deductions.total + (Number(payments.total_received) || 0);
+
+    // ---- Final Response ----
+    res.status(200).json({
+      success: true,
+      message: "Today’s collection fetched successfully",
+      date: reportDate,
+      data: {
+        ...result,
+        totals: {
+          totalQty,
+          totalAmount,
+          dailyAvg: Number(dailyAvg),
+        },
+        financials: {
+          deductions,
+          total_received: Number(payments.total_received) || 0,
+          netAmount,
+        },
+      },
+    });
+  } catch (err) {
+    console.error("Error fetching today’s collection:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+}
+
 
 async function getCollectionBytab(req, res) {
   let { farmer_id, shift, type, date, dairy_id } = req.query;

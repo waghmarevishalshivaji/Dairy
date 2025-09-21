@@ -514,6 +514,7 @@ async function getTodaysCollectionfarmer(req, res) {
     const result = {
       morning: {
         shift: "Morning",
+        created_at: "NA", // default
         total_quantity: 0,
         avg_fat: 0,
         avg_snf: 0,
@@ -522,6 +523,7 @@ async function getTodaysCollectionfarmer(req, res) {
       },
       evening: {
         shift: "Evening",
+        created_at: "NA", // default
         total_quantity: 0,
         avg_fat: 0,
         avg_snf: 0,
@@ -533,7 +535,7 @@ async function getTodaysCollectionfarmer(req, res) {
     rows.forEach((r) => {
       const entry = {
         shift: r.shift,
-        created_at: r.last_entry || r.first_entry, // use last entry as collection time
+        created_at: r.last_entry || r.first_entry || "NA", // use last entry as collection time
         total_quantity: Number(r.total_quantity) || 0,
         avg_fat: Number(r.avg_fat) || 0,
         avg_snf: Number(r.avg_snf) || 0,

@@ -459,6 +459,8 @@ async function getTodaysCollectionfarmer(req, res) {
     let query = `
       SELECT 
         shift,
+        MIN(created_at) as first_entry,   
+        MAX(created_at) as last_entry,    
         SUM(quantity) AS total_quantity,
         ROUND(AVG(fat), 2) AS avg_fat,
         ROUND(AVG(snf), 2) AS avg_snf,
@@ -531,6 +533,7 @@ async function getTodaysCollectionfarmer(req, res) {
     rows.forEach((r) => {
       const entry = {
         shift: r.shift,
+        created_at: r.last_entry || r.first_entry, // use last entry as collection time
         total_quantity: Number(r.total_quantity) || 0,
         avg_fat: Number(r.avg_fat) || 0,
         avg_snf: Number(r.avg_snf) || 0,

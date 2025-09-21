@@ -9,7 +9,7 @@ async function sendNotification(req, res) {
     }
     
     if(!farmer_id){
-        farmer_id = null
+        farmer_id = "No"
     }
 
     // Save notification in DB

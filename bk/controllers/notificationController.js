@@ -3,7 +3,7 @@ const db = require("../config/db");
 // Manager sends notification
 async function sendNotification(req, res) {
   try {
-    const { dairy_id, title, message, farmer_id } = req.body;
+    let { dairy_id, title, message, farmer_id } = req.body;
     if (!dairy_id || !title || !message) {
       return res.status(400).json({ success: false, message: "dairy_id, title, message required" });
     }

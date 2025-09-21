@@ -642,23 +642,310 @@ function formatDate(y, m, d) {
 //   }
 // }
 
+// async function getmonthpayment(req, res) {
+//   let { farmer_id, datefrom, dateto, dairyid } = req.query;
+//   const today = new Date();
+
+//   try {
+//     const conditions = [];
+//     const params = [];
+
+//     if (farmer_id) {
+//       conditions.push("farmer_id = ?");
+//       params.push(farmer_id.trim());
+//     }
+
+//     if (dairyid) {
+//       conditions.push("dairy_id = ?");
+//       params.push(dairyid.trim());
+//     }
+
+//     let startDate = "";
+//     let endDate = "";
+//     let groupByMonth = false;
+
+//     if (datefrom && dateto) {
+//       startDate = datefrom.trim();
+//       endDate = dateto.trim();
+//       groupByMonth = true;
+//       conditions.push("date BETWEEN ? AND ?");
+//       params.push(startDate, endDate);
+//     } else {
+//       const day = today.getDate();
+//       const month = today.getMonth();
+//       const year = today.getFullYear();
+
+//       if (day <= 10) {
+//         const lastMonth = new Date(year, month - 1);
+//         startDate = `${lastMonth.getFullYear()}-${String(
+//           lastMonth.getMonth() + 1
+//         ).padStart(2, "0")}-21`;
+//         endDate = `${lastMonth.getFullYear()}-${String(
+//           lastMonth.getMonth() + 1
+//         ).padStart(2, "0")}-30`;
+//       } else if (day <= 20) {
+//         startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+//         endDate = `${year}-${String(month + 1).padStart(2, "0")}-10`;
+//       } else {
+//         startDate = `${year}-${String(month + 1).padStart(2, "0")}-11`;
+//         endDate = `${year}-${String(month + 1).padStart(2, "0")}-20`;
+//       }
+//       conditions.push("date BETWEEN ? AND ?");
+//       params.push(startDate, endDate);
+//     }
+
+//     let query = `
+//       SELECT 
+//         farmer_id,
+//         SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) as advance,
+//         SUM(CASE WHEN payment_type='cattle feed' THEN amount_taken ELSE 0 END) as cattle_feed,
+//         SUM(CASE WHEN payment_type='Other1' THEN amount_taken ELSE 0 END) as other1,
+//         SUM(CASE WHEN payment_type='Other2' THEN amount_taken ELSE 0 END) as other2,
+//         SUM(amount_taken) as total_deductions,
+//         SUM(received) as total_received
+//       FROM farmer_payments
+//     `;
+
+//     if (conditions.length > 0) {
+//       query += " WHERE " + conditions.join(" AND ");
+//     }
+
+//     query += " GROUP BY farmer_id";
+
+//     const [rows] = await db.execute(query, params);
+
+//     if (rows.length === 0) {
+//       return res
+//         .status(200)
+//         .json({ success: true, message: "No payments found", data: [] });
+//     }
+
+//     // Till-date balance for each farmer
+//     for (const r of rows) {
+//       const [milkTill] = await db.execute(
+//         `SELECT SUM(quantity * rate) as milk_total
+//          FROM collections WHERE farmer_id=? AND DATE(created_at) <= ?`,
+//         [r.farmer_id, endDate]
+//       );
+
+//       const [payTill] = await db.execute(
+//         `SELECT SUM(amount_taken) as total_deductions, SUM(received) as total_received
+//          FROM farmer_payments WHERE farmer_id=? AND DATE(date) <= ?`,
+//         [r.farmer_id, endDate]
+//       );
+
+//       const [billTill] = await db.execute(
+//         `SELECT SUM(net_payable) as total_billed
+//          FROM bills WHERE farmer_id=? AND status='paid' AND DATE(created_at) <= ?`,
+//         [r.farmer_id, endDate]
+//       );
+
+//       const milk_total = Number(milkTill[0]?.milk_total) || 0;
+//       const total_deductions_till = Number(payTill[0]?.total_deductions) || 0;
+//       const total_received_till = Number(payTill[0]?.total_received) || 0;
+//       const total_billed_till = Number(billTill[0]?.total_billed) || 0;
+
+//       r.remaining_balance =
+//         milk_total - total_deductions_till + total_received_till - total_billed_till;
+//     }
+
+//     return res.status(200).json({
+//       result: 1,
+//       success: true,
+//       message: "Success",
+//       dateRange: { startDate, endDate },
+//       data: rows,
+//     });
+//   } catch (err) {
+//     console.error("Error fetching payments:", err);
+//     res.status(500).json({ success: false, message: "Server error" });
+//   }
+// }
+
+// async function getmonthpayment(req, res) {
+//   let { farmer_id, datefrom, dateto, dairyid } = req.query;
+//   const today = new Date();
+
+//   try {
+//     if (!farmer_id || !dairyid) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "farmer_id and dairyid are required",
+//       });
+//     }
+
+//     let query = "SELECT * FROM farmer_payments";
+//     const conditions = [];
+//     const params = [];
+
+//     conditions.push("farmer_id = ?");
+//     params.push(farmer_id.trim());
+
+//     conditions.push("dairy_id = ?");
+//     params.push(dairyid.trim());
+
+//     let startDate = "";
+//     let endDate = "";
+//     let groupByMonth = false;
+
+//     if (datefrom && dateto) {
+//       startDate = datefrom.trim();
+//       endDate = dateto.trim();
+//       groupByMonth = true;
+
+//       conditions.push("date BETWEEN ? AND ?");
+//       params.push(startDate, endDate);
+//     } else {
+//       // default 10-day range
+//       const day = today.getDate();
+//       const month = today.getMonth();
+//       const year = today.getFullYear();
+
+//       if (day <= 10) {
+//         const lastMonth = new Date(year, month - 1);
+//         startDate = `${lastMonth.getFullYear()}-${String(
+//           lastMonth.getMonth() + 1
+//         ).padStart(2, "0")}-21`;
+//         endDate = `${lastMonth.getFullYear()}-${String(
+//           lastMonth.getMonth() + 1
+//         ).padStart(2, "0")}-30`;
+//       } else if (day <= 20) {
+//         startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+//         endDate = `${year}-${String(month + 1).padStart(2, "0")}-10`;
+//       } else {
+//         startDate = `${year}-${String(month + 1).padStart(2, "0")}-11`;
+//         endDate = `${year}-${String(month + 1).padStart(2, "0")}-20`;
+//       }
+
+//       conditions.push("date BETWEEN ? AND ?");
+//       params.push(startDate, endDate);
+//     }
+
+//     if (conditions.length > 0) {
+//       query += " WHERE " + conditions.join(" AND ");
+//     }
+
+//     const [rows] = await db.execute(query, params);
+
+//     // --- Grouping logic ---
+//     const start = new Date(startDate);
+//     const end = new Date(endDate);
+
+//     const groups = [];
+
+//     for (
+//       let d = new Date(start.getFullYear(), start.getMonth(), 1);
+//       d <= end;
+//       d.setMonth(d.getMonth() + 1)
+//     ) {
+//       const y = d.getFullYear();
+//       const m = d.getMonth();
+//       const lastDay = new Date(y, m + 1, 0).getDate();
+
+//       groups.push(
+//         {
+//           label: `1-10 ${y}-${String(m + 1).padStart(2, "0")}`,
+//           from: `${y}-${String(m + 1).padStart(2, "0")}-01`,
+//           to: `${y}-${String(m + 1).padStart(2, "0")}-10`,
+//           data: [],
+//         },
+//         {
+//           label: `11-20 ${y}-${String(m + 1).padStart(2, "0")}`,
+//           from: `${y}-${String(m + 1).padStart(2, "0")}-11`,
+//           to: `${y}-${String(m + 1).padStart(2, "0")}-20`,
+//           data: [],
+//         },
+//         {
+//           label: `21-${lastDay} ${y}-${String(m + 1).padStart(2, "0")}`,
+//           from: `${y}-${String(m + 1).padStart(2, "0")}-21`,
+//           to: `${y}-${String(m + 1).padStart(2, "0")}-${lastDay}`,
+//           data: [],
+//         }
+//       );
+//     }
+
+//     // Place payments in groups
+//     for (const row of rows) {
+//       const rowDate = new Date(row.date);
+//       for (const group of groups) {
+//         const from = new Date(group.from);
+//         const to = new Date(group.to);
+//         if (rowDate >= from && rowDate <= to) {
+//           group.data.push(row);
+//           break;
+//         }
+//       }
+//     }
+
+//     // --- Compute totals + remaining balance ---
+//     const resultGroups = [];
+
+//     for (const g of groups) {
+//       const totalDeductions = g.data.reduce(
+//         (sum, r) => sum + (Number(r.amount_taken) || 0),
+//         0
+//       );
+//       const totalReceived = g.data.reduce(
+//         (sum, r) => sum + (Number(r.received) || 0),
+//         0
+//       );
+
+//       // Get milk total till group end date
+//       const [milkRows] = await db.execute(
+//         `SELECT SUM(quantity*rate) as milk_total
+//          FROM collections
+//          WHERE dairy_id=? AND farmer_id=? AND DATE(created_at) <= ?`,
+//         [dairyid, farmer_id, g.to]
+//       );
+
+//       const milkTotal = Number(milkRows[0]?.milk_total) || 0;
+
+//       const remaining_balance = milkTotal - totalDeductions + totalReceived;
+
+//       resultGroups.push({
+//         label: g.label,
+//         from: g.from,
+//         to: g.to,
+//         total: totalDeductions,
+//         received: totalReceived,
+//         remaining_balance,
+//         data: g.data,
+//       });
+//     }
+
+//     return res.status(200).json({
+//       result: 1,
+//       success: true,
+//       message: "Success",
+//       grouped: resultGroups,
+//     });
+//   } catch (err) {
+//     console.error("Error fetching payments:", err);
+//     res.status(500).json({ success: false, message: "Server error" });
+//   }
+// }
+
 async function getmonthpayment(req, res) {
-  let { farmer_id, datefrom, dateto } = req.query;
+  let { farmer_id, datefrom, dateto, dairyid } = req.query;
   const today = new Date();
 
   try {
+    if (!farmer_id || !dairyid) {
+      return res.status(400).json({
+        success: false,
+        message: "farmer_id and dairyid are required",
+      });
+    }
+
+    let query = "SELECT * FROM farmer_payments";
     const conditions = [];
     const params = [];
 
-    if (farmer_id) {
-      conditions.push("farmer_id = ?");
-      params.push(farmer_id.trim());
-    }
+    conditions.push("farmer_id = ?");
+    params.push(farmer_id.trim());
 
-    // if (dairyid) {
-    //   conditions.push("dairy_id = ?");
-    //   params.push(dairyid.trim());
-    // }
+    conditions.push("dairy_id = ?");
+    params.push(dairyid.trim());
 
     let startDate = "";
     let endDate = "";
@@ -668,9 +955,11 @@ async function getmonthpayment(req, res) {
       startDate = datefrom.trim();
       endDate = dateto.trim();
       groupByMonth = true;
+
       conditions.push("date BETWEEN ? AND ?");
       params.push(startDate, endDate);
     } else {
+      // default 10-day range
       const day = today.getDate();
       const month = today.getMonth();
       const year = today.getFullYear();
@@ -690,77 +979,115 @@ async function getmonthpayment(req, res) {
         startDate = `${year}-${String(month + 1).padStart(2, "0")}-11`;
         endDate = `${year}-${String(month + 1).padStart(2, "0")}-20`;
       }
+
       conditions.push("date BETWEEN ? AND ?");
       params.push(startDate, endDate);
     }
-
-    let query = `
-      SELECT 
-        farmer_id,
-        SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) as advance,
-        SUM(CASE WHEN payment_type='cattle feed' THEN amount_taken ELSE 0 END) as cattle_feed,
-        SUM(CASE WHEN payment_type='Other1' THEN amount_taken ELSE 0 END) as other1,
-        SUM(CASE WHEN payment_type='Other2' THEN amount_taken ELSE 0 END) as other2,
-        SUM(amount_taken) as total_deductions,
-        SUM(received) as total_received
-      FROM farmer_payments
-    `;
 
     if (conditions.length > 0) {
       query += " WHERE " + conditions.join(" AND ");
     }
 
-    query += " GROUP BY farmer_id";
-
     const [rows] = await db.execute(query, params);
 
-    if (rows.length === 0) {
-      return res
-        .status(200)
-        .json({ success: true, message: "No payments found", data: [] });
+    // --- Grouping logic ---
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    const groups = [];
+
+    for (
+      let d = new Date(start.getFullYear(), start.getMonth(), 1);
+      d <= end;
+      d.setMonth(d.getMonth() + 1)
+    ) {
+      const y = d.getFullYear();
+      const m = d.getMonth();
+      const lastDay = new Date(y, m + 1, 0).getDate();
+
+      groups.push(
+        {
+          label: `1-10 ${y}-${String(m + 1).padStart(2, "0")}`,
+          from: `${y}-${String(m + 1).padStart(2, "0")}-01`,
+          to: `${y}-${String(m + 1).padStart(2, "0")}-10`,
+          data: [],
+        },
+        {
+          label: `11-20 ${y}-${String(m + 1).padStart(2, "0")}`,
+          from: `${y}-${String(m + 1).padStart(2, "0")}-11`,
+          to: `${y}-${String(m + 1).padStart(2, "0")}-20`,
+          data: [],
+        },
+        {
+          label: `21-${lastDay} ${y}-${String(m + 1).padStart(2, "0")}`,
+          from: `${y}-${String(m + 1).padStart(2, "0")}-21`,
+          to: `${y}-${String(m + 1).padStart(2, "0")}-${lastDay}`,
+          data: [],
+        }
+      );
     }
 
-    // Till-date balance for each farmer
-    for (const r of rows) {
-      const [milkTill] = await db.execute(
-        `SELECT SUM(quantity * rate) as milk_total
-         FROM collections WHERE farmer_id=? AND DATE(created_at) <= ?`,
-        [r.farmer_id, endDate]
-      );
-
-      const [payTill] = await db.execute(
-        `SELECT SUM(amount_taken) as total_deductions, SUM(received) as total_received
-         FROM farmer_payments WHERE farmer_id=? AND DATE(date) <= ?`,
-        [r.farmer_id, endDate]
-      );
-
-      const [billTill] = await db.execute(
-        `SELECT SUM(net_payable) as total_billed
-         FROM bills WHERE farmer_id=? AND status='paid' AND DATE(created_at) <= ?`,
-        [r.farmer_id, endDate]
-      );
-
-      const milk_total = Number(milkTill[0]?.milk_total) || 0;
-      const total_deductions_till = Number(payTill[0]?.total_deductions) || 0;
-      const total_received_till = Number(payTill[0]?.total_received) || 0;
-      const total_billed_till = Number(billTill[0]?.total_billed) || 0;
-
-      r.remaining_balance =
-        milk_total - total_deductions_till + total_received_till - total_billed_till;
+    // Place payments in groups
+    for (const row of rows) {
+      const rowDate = new Date(row.date);
+      for (const group of groups) {
+        const from = new Date(group.from);
+        const to = new Date(group.to);
+        if (rowDate >= from && rowDate <= to) {
+          group.data.push(row);
+          break;
+        }
+      }
     }
 
+    // --- Compute totals per group (without remaining balance) ---
+    const resultGroups = groups.map((g) => ({
+      label: g.label,
+      from: g.from,
+      to: g.to,
+      total: g.data.reduce((sum, r) => sum + Number(r.amount_taken || 0), 0),
+      received: g.data.reduce((sum, r) => sum + Number(r.received || 0), 0),
+      data: g.data,
+    }));
+
+    // --- Compute overall remaining balance ---
+    const [milkRows] = await db.execute(
+      `SELECT SUM(quantity*rate) as milk_total
+       FROM collections
+       WHERE dairy_id=? AND farmer_id=?`,
+      [dairyid, farmer_id]
+    );
+
+    const [payRows] = await db.execute(
+      `SELECT 
+         SUM(amount_taken) as total_deductions,
+         SUM(received) as total_received
+       FROM farmer_payments
+       WHERE dairy_id=? AND farmer_id=?`,
+      [dairyid, farmer_id]
+    );
+
+    const milkTotal = Number(milkRows[0]?.milk_total) || 0;
+    const totalDeductions = Number(payRows[0]?.total_deductions) || 0;
+    const totalReceived = Number(payRows[0]?.total_received) || 0;
+
+    const remaining_balance = milkTotal - totalDeductions + totalReceived;
+
+    // --- Final response ---
     return res.status(200).json({
       result: 1,
       success: true,
       message: "Success",
-      dateRange: { startDate, endDate },
-      data: rows,
+      grouped: resultGroups,
+      remaining_balance,
     });
   } catch (err) {
     console.error("Error fetching payments:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 }
+
+
 
 
 

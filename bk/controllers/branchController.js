@@ -6,6 +6,89 @@ function generateUniqueTimeNumber() {
     return Date.now();
 }
 
+async function createDairy(req, res) {
+  const { name, branchname, ownername, days, villagename, address, password, mobile_number, role } = req.body;
+
+  let rolemgr = 'Dairymgr';
+  if (!name || !password || !branchname || !ownername || !mobile_number) {
+    return res.status(400).json({ message: "All fields are required" });
+  }
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  try {
+    // ---- Generate Manager Username ----
+    const [rows] = await db.execute(
+      `SELECT username FROM users WHERE role = ? ORDER BY id DESC LIMIT 1`,
+      [rolemgr]
+    );
+
+    let nextNumber = 500001; // default starting point
+    if (rows.length > 0) {
+      const lastUsername = rows[0].username.replace(/\D/g, ""); // extract digits
+      if (lastUsername) {
+        const lastNum = parseInt(lastUsername);
+        if (lastNum >= 500001) {
+          nextNumber = lastNum + 1; // continue sequence
+        }
+      }
+    }
+
+    const mgrname = String(nextNumber); // e.g. "500001", "500002"
+
+    // ---- Check existing user by mobile ----
+    const [existingUser] = await db.execute(
+      'SELECT * FROM users WHERE mobile_number = ?',
+      [mobile_number]
+    );
+
+    let ownerId;
+    if (existingUser.length > 0) {
+      ownerId = existingUser[0]['id'];
+    } else {
+      const [ownerResult] = await db.execute(
+        'INSERT INTO users (username, password, mobile_number, role) VALUES (?, ?, ?, ?)',
+        [ownername, hashedPassword, mobile_number, role]
+      );
+      ownerId = ownerResult.insertId;
+    }
+
+    // ---- Create Dairy ----
+    const [dairyresult] = await db.execute(
+      'INSERT INTO dairy (name, branchname, ownername, days, villagename, address, password, createdby) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [name, branchname, ownername, days, villagename, address, hashedPassword, ownerId]
+    );
+
+    // ---- Create Manager User ----
+    const [mgrResult] = await db.execute(
+      'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
+      [mgrname, hashedPassword, rolemgr]
+    );
+
+    // ---- Map user to dairy ----
+    await db.execute(
+      'INSERT INTO userDairy (user_id, dairy_id, role) VALUES (?, ?, ?)',
+      [mgrResult.insertId, dairyresult.insertId, rolemgr]
+    );
+
+    // ---- Fetch user ----
+    const [userdata] = await db.execute(
+      'SELECT * FROM users WHERE id = ?',
+      [mgrResult.insertId]
+    );
+    userdata[0].pass = password;
+
+    res.status(201).json({
+      message: 'Dairy record created successfully',
+      data: userdata[0]
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
+
 // async function createDairy(req, res) {
 //     const { name, branchname, ownername, days, villagename, address, password, mobile_number, role } = req.body;
 
@@ -78,85 +161,85 @@ function generateUniqueTimeNumber() {
 //     }
 // }
 
-async function createDairy(req, res) {
-  const { name, branchname, ownername, days, villagename, address, password, mobile_number, role } = req.body;
+// async function createDairy(req, res) {
+//   const { name, branchname, ownername, days, villagename, address, password, mobile_number, role } = req.body;
 
-  let rolemgr = 'Dairymgr';
-  if (!name || !password || !branchname || !ownername || !mobile_number) {
-    return res.status(400).json({ message: "All fields are required" });
-  }
-  const hashedPassword = await bcrypt.hash(password, 10);
+//   let rolemgr = 'Dairymgr';
+//   if (!name || !password || !branchname || !ownername || !mobile_number) {
+//     return res.status(400).json({ message: "All fields are required" });
+//   }
+//   const hashedPassword = await bcrypt.hash(password, 10);
 
-  try {
-    // ---- Generate Manager Username ----
-    const [rows] = await db.execute(
-      `SELECT username FROM users WHERE role = ? ORDER BY id DESC LIMIT 1`,
-      [rolemgr]
-    );
+//   try {
+//     // ---- Generate Manager Username ----
+//     const [rows] = await db.execute(
+//       `SELECT username FROM users WHERE role = ? ORDER BY id DESC LIMIT 1`,
+//       [rolemgr]
+//     );
 
-    let nextNumber = 1;
-    if (rows.length > 0) {
-      // Extract last number part (e.g. "00005")
-      const lastUsername = rows[0].username.replace(/\D/g, ""); // keep only digits
-      if (lastUsername) {
-        nextNumber = parseInt(lastUsername) + 1;
-      }
-    }
+//     let nextNumber = 1;
+//     if (rows.length > 0) {
+//       // Extract last number part (e.g. "00005")
+//       const lastUsername = rows[0].username.replace(/\D/g, ""); // keep only digits
+//       if (lastUsername) {
+//         nextNumber = parseInt(lastUsername) + 1;
+//       }
+//     }
 
-    const mgrname = String(nextNumber).padStart(5, "0"); // e.g. "00001"
+//     const mgrname = String(nextNumber).padStart(5, "0"); // e.g. "00001"
 
-    // ---- Check existing user by mobile ----
-    const [existingUser] = await db.execute(
-      'SELECT * FROM users WHERE mobile_number = ?',
-      [mobile_number]
-    );
+//     // ---- Check existing user by mobile ----
+//     const [existingUser] = await db.execute(
+//       'SELECT * FROM users WHERE mobile_number = ?',
+//       [mobile_number]
+//     );
 
-    let ownerId;
-    if (existingUser.length > 0) {
-      ownerId = existingUser[0]['id'];
-    } else {
-      const [ownerResult] = await db.execute(
-        'INSERT INTO users (username, password, mobile_number, role) VALUES (?, ?, ?, ?)',
-        [ownername, hashedPassword, mobile_number, role]
-      );
-      ownerId = ownerResult.insertId;
-    }
+//     let ownerId;
+//     if (existingUser.length > 0) {
+//       ownerId = existingUser[0]['id'];
+//     } else {
+//       const [ownerResult] = await db.execute(
+//         'INSERT INTO users (username, password, mobile_number, role) VALUES (?, ?, ?, ?)',
+//         [ownername, hashedPassword, mobile_number, role]
+//       );
+//       ownerId = ownerResult.insertId;
+//     }
 
-    // ---- Create Dairy ----
-    const [dairyresult] = await db.execute(
-      'INSERT INTO dairy (name, branchname, ownername, days, villagename, address, password, createdby) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [name, branchname, ownername, days, villagename, address, hashedPassword, ownerId]
-    );
+//     // ---- Create Dairy ----
+//     const [dairyresult] = await db.execute(
+//       'INSERT INTO dairy (name, branchname, ownername, days, villagename, address, password, createdby) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+//       [name, branchname, ownername, days, villagename, address, hashedPassword, ownerId]
+//     );
 
-    // ---- Create Manager User ----
-    const [mgrResult] = await db.execute(
-      'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
-      [mgrname, hashedPassword, rolemgr]
-    );
+//     // ---- Create Manager User ----
+//     const [mgrResult] = await db.execute(
+//       'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
+//       [mgrname, hashedPassword, rolemgr]
+//     );
 
-    // ---- Map user to dairy ----
-    await db.execute(
-      'INSERT INTO userDairy (user_id, dairy_id, role) VALUES (?, ?, ?)',
-      [mgrResult.insertId, dairyresult.insertId, rolemgr]
-    );
+//     // ---- Map user to dairy ----
+//     await db.execute(
+//       'INSERT INTO userDairy (user_id, dairy_id, role) VALUES (?, ?, ?)',
+//       [mgrResult.insertId, dairyresult.insertId, rolemgr]
+//     );
 
-    // ---- Fetch user ----
-    const [userdata] = await db.execute(
-      'SELECT * FROM users WHERE id = ?',
-      [mgrResult.insertId]
-    );
-    userdata[0].pass = password;
+//     // ---- Fetch user ----
+//     const [userdata] = await db.execute(
+//       'SELECT * FROM users WHERE id = ?',
+//       [mgrResult.insertId]
+//     );
+//     userdata[0].pass = password;
 
-    res.status(201).json({
-      message: 'Dairy record created successfully',
-      data: userdata[0]
-    });
+//     res.status(201).json({
+//       message: 'Dairy record created successfully',
+//       data: userdata[0]
+//     });
 
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
-  }
-}
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ message: 'Server error' });
+//   }
+// }
 
 
 async function getDairies(req, res) {

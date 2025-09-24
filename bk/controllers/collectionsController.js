@@ -486,7 +486,14 @@ async function getTodaysCollectionByFarmer(req, res) {
     }
 
     // Use either passed date or today
-    const reportDate = date || new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    // const reportDate = date || new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+    // const startOfDay = `${reportDate} 00:00:00`;
+    // const endOfDay = `${reportDate} 23:59:59`;
+
+     // Use either passed date or today (IST-safe)
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const reportDate = date || today;
 
     const startOfDay = `${reportDate} 00:00:00`;
     const endOfDay = `${reportDate} 23:59:59`;

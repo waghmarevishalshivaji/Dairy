@@ -441,9 +441,43 @@ async function getTodaysCollection(req, res) {
 //   }
 // }
 
+// async function getTodaysCollectionByFarmer(req, res) {
+//   try {
+//     const { dairyid, farmer_id } = req.query;
+
+//     if (!dairyid || !farmer_id) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "dairyid and farmer_id are required" });
+//     }
+
+//     const [rows] = await db.execute(
+//       `SELECT id, farmer_id, shift, type, quantity, fat, snf, clr, rate, (quantity * rate) as amount, created_at
+//        FROM collections
+//        WHERE DATE(created_at) = CURDATE()
+//          AND dairy_id = ?
+//          AND farmer_id = ?
+//        ORDER BY created_at`,
+//       [dairyid, farmer_id]
+//     );
+
+//     res.status(200).json({
+//       success: true,
+//       date: new Date().toISOString().slice(0, 10),
+//       farmer_id,
+//       dairy_id: dairyid,
+//       data: rows
+//     });
+
+//   } catch (err) {
+//     console.error("Error fetching today's collection by farmer:", err);
+//     res.status(500).json({ success: false, message: "Server error" });
+//   }
+// }
+
 async function getTodaysCollectionByFarmer(req, res) {
   try {
-    const { dairyid, farmer_id } = req.query;
+    const { dairyid, farmer_id, date } = req.query;
 
     if (!dairyid || !farmer_id) {
       return res
@@ -451,19 +485,25 @@ async function getTodaysCollectionByFarmer(req, res) {
         .json({ success: false, message: "dairyid and farmer_id are required" });
     }
 
+    // Use either passed date or today
+    const reportDate = date || new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+    const startOfDay = `${reportDate} 00:00:00`;
+    const endOfDay = `${reportDate} 23:59:59`;
+
     const [rows] = await db.execute(
       `SELECT id, farmer_id, shift, type, quantity, fat, snf, clr, rate, (quantity * rate) as amount, created_at
        FROM collections
-       WHERE DATE(created_at) = CURDATE()
+       WHERE created_at BETWEEN ? AND ?
          AND dairy_id = ?
          AND farmer_id = ?
        ORDER BY created_at`,
-      [dairyid, farmer_id]
+      [startOfDay, endOfDay, dairyid, farmer_id]
     );
 
     res.status(200).json({
       success: true,
-      date: new Date().toISOString().slice(0, 10),
+      date: reportDate,
       farmer_id,
       dairy_id: dairyid,
       data: rows
@@ -474,6 +514,7 @@ async function getTodaysCollectionByFarmer(req, res) {
     res.status(500).json({ success: false, message: "Server error" });
   }
 }
+
 
 
 async function getTodaysCollectionfarmer(req, res) {

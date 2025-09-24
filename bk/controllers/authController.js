@@ -434,7 +434,13 @@ async function registefarmer(req, res) {
 
   try {
     // Check if the username already exists
-    const [existingUser] = await db.execute('SELECT * FROM users WHERE username = ? OR mobile_number = ?', [username, mobile_number]);
+    //const [existingUser] = await db.execute('SELECT * FROM users WHERE username = ? OR mobile_number = ?', [username, mobile_number]);
+    let roleuser = 'Farmer';
+    const [existingUser] = await db.execute(
+      'SELECT * FROM users WHERE (username = ? OR mobile_number = ?) AND role = ?',
+      [username, mobile_number, roleuser]
+    );
+
 
     if (existingUser.length > 0) {
       return res.status(400).json({ message: 'Username or mobile number already exists', success : false });
@@ -481,33 +487,6 @@ async function registefarmer(req, res) {
     const query = `INSERT INTO users (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
 
     await db.execute(query, values);
-
-
-    // const fields = [
-    //   'username',
-    //   'fullName',
-    //   'mobile_number',
-    //   'email',
-    //   'address',
-    //   'milkType',
-    //   'rateChart',
-    //   'panCard',
-    //   'aadhaarCard',
-    //   'bankName',
-    //   'accountNumber',
-    //   'ifscCode',
-    //   'role'
-    // ];
-
-    // const values = fields.map(field => req.body[field]);
-    // console.log(values)
-    // await db.execute(
-    //   `INSERT INTO users (${fields.join(', ')}) VALUES (${fields.map(() => '?').join(', ')})`,
-    //   values
-    // );
-
-    // Create a JWT token for the new user
-    // const token = await jwt.sign({ username, mobile_number, role }, process.env.JWT_SECRET, { expiresIn: '8h' }, { data : req.body});
 
     const token = jwt.sign(
       { username, mobile_number, role },

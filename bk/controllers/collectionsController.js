@@ -797,28 +797,87 @@ async function getCollectionBytab(req, res) {
 
 
 // Update collection
+// async function updateCollection(req, res) {
+//     const { id } = req.params;
+//     const { farmer_id, type, quantity, fat, snf, clr, rate, shift } = req.body;
+
+//     try {
+//         const [result] = await db.execute(
+//             `UPDATE collections 
+//              SET farmer_id = ?, type = ?, quantity = ?, fat = ?, snf = ?, clr = ?, rate = ?, shift = ? 
+//              WHERE id = ?`,
+//             [farmer_id, type, quantity, fat, snf, clr, rate, shift, id]
+//         );
+
+//         if (result.affectedRows === 0) {
+//             return res.status(404).json({ message: 'Collection not found or not updated' });
+//         }
+
+//         res.status(200).json({ message: 'Collection updated' });
+//     } catch (err) {
+//         console.error('Error updating collection:', err);
+//         res.status(500).json({ message: 'Server error' });
+//     }
+// }
+
 async function updateCollection(req, res) {
-    const { id } = req.params;
-    const { farmer_id, type, quantity, fat, snf, clr, rate, shift } = req.body;
+  const { id } = req.params;
+  const { farmer_id, type, quantity, fat, snf, clr, rate, shift, date } = req.body;
 
-    try {
-        const [result] = await db.execute(
-            `UPDATE collections 
-             SET farmer_id = ?, type = ?, quantity = ?, fat = ?, snf = ?, clr = ?, rate = ?, shift = ? 
-             WHERE id = ?`,
-            [farmer_id, type, quantity, fat, snf, clr, rate, shift, id]
-        );
-
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'Collection not found or not updated' });
-        }
-
-        res.status(200).json({ message: 'Collection updated' });
-    } catch (err) {
-        console.error('Error updating collection:', err);
-        res.status(500).json({ message: 'Server error' });
+  try {
+    // Use provided date OR default to now (IST)
+    let currentDate;
+    if (date) {
+      // If only YYYY-MM-DD is passed, append 00:00:00
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        currentDate = new Date(`${date}T00:00:00+05:30`);
+      } else {
+        // Assume full datetime is passed in string
+        currentDate = new Date(date);
+      }
+    } else {
+      currentDate = new Date();
     }
+
+    // Convert to IST formatted datetime
+    const istDateTime = currentDate.toLocaleString("en-US", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    });
+
+    const [datePart, timePart] = istDateTime.split(", ");
+    const [month, day, year] = datePart.split("/");
+    const formattedIdtDateTime = `${year}-${month}-${day} ${timePart}`;
+
+    // Run update
+    const [result] = await db.execute(
+      `UPDATE collections 
+       SET farmer_id = ?, type = ?, quantity = ?, fat = ?, snf = ?, clr = ?, rate = ?, shift = ?, created_at = ?
+       WHERE id = ?`,
+      [farmer_id, type, quantity, fat, snf, clr, rate, shift, formattedIdtDateTime, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Collection not found or not updated" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Collection updated",
+      updated_at: formattedIdtDateTime,
+    });
+  } catch (err) {
+    console.error("Error updating collection:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
 }
+
 
 // Delete collection
 async function deleteCollection(req, res) {

@@ -4,40 +4,55 @@ const bcrypt = require('bcryptjs');
 
 // Create new collection
 async function createCollection(req, res) {
-    const { farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift } = req.body;
+  const { farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, date } = req.body;
 
-    // const now = new Date();
-    // const istDateTime = now.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+  try {
+    // Use provided date OR default to now (IST)
+    let currentDate;
+    if (date) {
+      // If frontend sends only YYYY-MM-DD, make it full datetime in IST
+      currentDate = new Date(`${date}T00:00:00+05:30`);
+    } else {
+      currentDate = new Date();
+    }
 
-    const currentDate = new Date();
-    const idtDateTime = currentDate.toLocaleString('en-US', {
-    timeZone: 'Asia/Kolkata',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hourCycle: 'h23' // Ensures 24-hour format
+    // Convert to IST and format as YYYY-MM-DD HH:mm:ss
+    const istDateTime = currentDate.toLocaleString("en-US", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23", // 24-hour format
     });
 
-    // To reformat the output to YYYY-MM-DD HH:mm:ss
-    const [datePart, timePart] = idtDateTime.split(', ');
-    const [month, day, year] = datePart.split('/');
+    // Split into date + time and reformat
+    const [datePart, timePart] = istDateTime.split(", ");
+    const [month, day, year] = datePart.split("/");
     const formattedIdtDateTime = `${year}-${month}-${day} ${timePart}`;
 
-    try {
-        const [result] = await db.execute(
-            `INSERT INTO collections (farmer_id, dairy_id,  type, quantity, fat, snf, clr, rate, shift, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, formattedIdtDateTime]
-        );
-        res.status(201).json({ message: 'Collection added', id: result.insertId });
-    } catch (err) {
-        console.error('Error creating collection:', err);
-        res.status(500).json({ message: 'Server error' });
-    }
+    // Insert into DB
+    const [result] = await db.execute(
+      `INSERT INTO collections 
+       (farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, formattedIdtDateTime]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Collection added",
+      id: result.insertId,
+      created_at: formattedIdtDateTime,
+    });
+  } catch (err) {
+    console.error("Error creating collection:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
 }
+
 
 // Get all collections
 async function getCollections(req, res) {

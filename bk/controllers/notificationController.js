@@ -73,7 +73,7 @@ async function sendDairyNotification(req, res) {
 
     // Fetch farmer tokens from DB
     const [farmers] = await db.execute(
-      `SELECT expo_token FROM users WHERE dairy_id = ? AND expo_push_token IS NOT NULL`,
+      `SELECT expo_token FROM users WHERE dairy_id = ? AND expo_token IS NOT NULL`,
       [dairy_id]
     );
 

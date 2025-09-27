@@ -3,20 +3,20 @@ const bcrypt = require('bcryptjs');
 
 async function generateBill(req, res) {
   try {
-    const { farmer_id, period_start, period_end } = req.body;
+    const { farmer_id, period_start, period_end, dairy_id } = req.body;
 
     const [[milk]] = await db.query(
       `SELECT SUM(quantity*rate) as milk_total
        FROM collections
-       WHERE farmer_id=? AND DATE(created_at) BETWEEN ? AND ?`,
-      [farmer_id, period_start, period_end]
+       WHERE farmer_id=? AND dairy_id=? AND DATE(created_at) BETWEEN ? AND ?`,
+      [farmer_id, dairy_id, period_start, period_end]
     );
 
     const [[payments]] = await db.query(
       `SELECT SUM(amount_taken) as advance_total, SUM(received) as received_total
        FROM farmer_payments
-       WHERE farmer_id=? AND date BETWEEN ? AND ?`,
-      [farmer_id, period_start, period_end]
+       WHERE farmer_id=? AND dairy_id=? AND date BETWEEN ? AND ?`,
+      [farmer_id, dairy_id, period_start, period_end]
     );
 
     const milkTotal = milk.milk_total || 0;
@@ -25,14 +25,15 @@ async function generateBill(req, res) {
     const netPayable = milkTotal - advanceTotal + receivedTotal;
 
     const [result] = await db.query(
-      `INSERT INTO bills (farmer_id, period_start, period_end, milk_total, advance_total, received_total, net_payable, status, is_finalized)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 0)`,
-      [farmer_id, period_start, period_end, milkTotal, advanceTotal, receivedTotal, netPayable]
+      `INSERT INTO bills (farmer_id, dairy_id, period_start, period_end, milk_total, advance_total, received_total, net_payable, status, is_finalized)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)`,
+      [farmer_id, dairy_id, period_start, period_end, milkTotal, advanceTotal, receivedTotal, netPayable]
     );
 
     res.json({
       bill_id: result.insertId,
       farmer_id,
+      dairy_id,
       milkTotal,
       advanceTotal,
       receivedTotal,

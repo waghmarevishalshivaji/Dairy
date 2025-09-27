@@ -74,9 +74,44 @@ async function getUserByName(req, res) {
   }
 }
 
+// async function updateExpoToken = async (req, res) => {
+async function updateExpoToken(req, res) {
+  const { id } = req.params;
+  const { expo_token } = req.body;
+
+  if (!expo_token) {
+    return res.status(400).json({ message: "Expo token is required" });
+  }
+
+  try {
+    const [result] = await db.execute(
+      `UPDATE users SET expo_token = ? WHERE id = ?`,
+      [expo_token, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "User not found or token not updated" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Expo token updated successfully"
+    });
+
+  } catch (error) {
+    console.error("Error updating Expo token:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+};
+
 
 module.exports = {
     getUserById,
     getUserByName,
-    getUserBydairyId
+    getUserBydairyId,
+    updateExpoToken
 };

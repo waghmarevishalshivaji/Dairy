@@ -77,7 +77,7 @@ async function sendDairyNotification(req, res) {
       [dairy_id]
     );
 
-    const tokens = farmers.map(f => f.expo_push_token);
+    const tokens = farmers.map(f => f.expo_token);
 
     if (tokens.length === 0) {
       return res.status(200).json({ success: true, message: "No farmers with push tokens" });

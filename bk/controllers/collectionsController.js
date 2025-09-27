@@ -55,7 +55,7 @@ async function createCollection(req, res) {
           to: expo_token,
           sound: 'default',
           title: 'Milk Collection Update',
-          body: `Dear ${name || 'Farmer'}, your ${type} milk collection of ${quantity}L has been recorded successfully.`,
+          body: `Dear ${username || 'Farmer'}, your ${type} milk collection of ${quantity}L has been recorded successfully.`,
           data: { type: 'collection', farmer_id, date: formattedIdtDateTime },
         }];
 

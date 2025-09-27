@@ -437,8 +437,8 @@ async function registefarmer(req, res) {
     //const [existingUser] = await db.execute('SELECT * FROM users WHERE username = ? OR mobile_number = ?', [username, mobile_number]);
     let roleuser = 'Farmer';
     const [existingUser] = await db.execute(
-      'SELECT * FROM users WHERE (username = ? OR mobile_number = ?) AND role = ?',
-      [username, mobile_number, roleuser]
+      'SELECT * FROM users WHERE (username = ? OR mobile_number = ?) AND role = ? AND dairy_id = ?',
+      [username, mobile_number, roleuser, dairy_id]
     );
 
 

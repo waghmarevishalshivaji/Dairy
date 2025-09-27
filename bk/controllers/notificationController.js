@@ -65,11 +65,30 @@ async function getNotifications(req, res) {
 
 async function sendDairyNotification(req, res) {
   try {
-    const { dairy_id, title, body } = req.body;
+    // const { dairy_id, title, body } = req.body;
+    let { dairy_id, title, body, farmer_id } = req.body;
 
     if (!dairy_id || !title || !body) {
       return res.status(400).json({ success: false, message: "dairy_id, title and body required" });
     }
+
+    if(!farmer_id){
+        farmer_id = "No"
+    }
+
+     io.to(`dairy_${dairy_id}`).emit("newNotification", {
+      title,
+      body,
+      dairy_id,
+      farmer_id,
+      timestamp: new Date()
+    });
+
+
+    await db.execute(
+      "INSERT INTO notifications (dairy_id, title, message, farmer_id) VALUES (?, ?, ?, ?)",
+      [dairy_id, title, body, farmer_id]
+    );
 
     // Fetch farmer tokens from DB
     const [farmers] = await db.execute(

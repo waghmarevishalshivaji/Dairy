@@ -1,8 +1,10 @@
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
+const { Expo } = require('expo-server-sdk')
+
+let expo = new Expo();
 
 
-// Create new collection
 async function createCollection(req, res) {
   const { farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, date } = req.body;
 
@@ -10,13 +12,12 @@ async function createCollection(req, res) {
     // Use provided date OR default to now (IST)
     let currentDate;
     if (date) {
-      // If frontend sends only YYYY-MM-DD, make it full datetime in IST
       currentDate = new Date(`${date}T00:00:00+05:30`);
     } else {
       currentDate = new Date();
     }
 
-    // Convert to IST and format as YYYY-MM-DD HH:mm:ss
+    // Convert to IST formatted string
     const istDateTime = currentDate.toLocaleString("en-US", {
       timeZone: "Asia/Kolkata",
       year: "numeric",
@@ -25,15 +26,14 @@ async function createCollection(req, res) {
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
-      hourCycle: "h23", // 24-hour format
+      hourCycle: "h23",
     });
 
-    // Split into date + time and reformat
     const [datePart, timePart] = istDateTime.split(", ");
     const [month, day, year] = datePart.split("/");
     const formattedIdtDateTime = `${year}-${month}-${day} ${timePart}`;
 
-    // Insert into DB
+    // 1️⃣ Insert collection
     const [result] = await db.execute(
       `INSERT INTO collections 
        (farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, created_at)
@@ -41,17 +41,103 @@ async function createCollection(req, res) {
       [farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, formattedIdtDateTime]
     );
 
+    // 2️⃣ Fetch farmer Expo token
+    const [farmerRows] = await db.execute(
+      `SELECT expo_token, username FROM users WHERE farmer_id = ? AND dairy_id = ?`,
+      [farmer_id, dairy_id]
+    );
+
+    if (farmerRows.length > 0) {
+      const { expo_token, username } = farmerRows[0];
+
+      if (expo_token && Expo.isExpoPushToken(expo_token)) {
+        const messages = [{
+          to: expo_token,
+          sound: 'default',
+          title: 'Milk Collection Update',
+          body: `Dear ${name || 'Farmer'}, your ${type} milk collection of ${quantity}L has been recorded successfully.`,
+          data: { type: 'collection', farmer_id, date: formattedIdtDateTime },
+        }];
+
+        // 3️⃣ Send Notification
+        const chunks = expo.chunkPushNotifications(messages);
+        for (const chunk of chunks) {
+          try {
+            await expo.sendPushNotificationsAsync(chunk);
+          } catch (error) {
+            console.error("Expo push error:", error);
+          }
+        }
+      } else {
+        console.log("Invalid or missing Expo token for farmer:", farmer_id);
+      }
+    }
+
+    // ✅ Respond to client
     res.status(201).json({
       success: true,
-      message: "Collection added",
+      message: "Collection added and farmer notified",
       id: result.insertId,
       created_at: formattedIdtDateTime,
     });
+
   } catch (err) {
     console.error("Error creating collection:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 }
+
+
+// Create new collection
+// async function createCollection(req, res) {
+//   const { farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, date } = req.body;
+
+//   try {
+//     // Use provided date OR default to now (IST)
+//     let currentDate;
+//     if (date) {
+//       // If frontend sends only YYYY-MM-DD, make it full datetime in IST
+//       currentDate = new Date(`${date}T00:00:00+05:30`);
+//     } else {
+//       currentDate = new Date();
+//     }
+
+//     // Convert to IST and format as YYYY-MM-DD HH:mm:ss
+//     const istDateTime = currentDate.toLocaleString("en-US", {
+//       timeZone: "Asia/Kolkata",
+//       year: "numeric",
+//       month: "2-digit",
+//       day: "2-digit",
+//       hour: "2-digit",
+//       minute: "2-digit",
+//       second: "2-digit",
+//       hourCycle: "h23", // 24-hour format
+//     });
+
+//     // Split into date + time and reformat
+//     const [datePart, timePart] = istDateTime.split(", ");
+//     const [month, day, year] = datePart.split("/");
+//     const formattedIdtDateTime = `${year}-${month}-${day} ${timePart}`;
+
+//     // Insert into DB
+//     const [result] = await db.execute(
+//       `INSERT INTO collections 
+//        (farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, created_at)
+//        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+//       [farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, formattedIdtDateTime]
+//     );
+
+//     res.status(201).json({
+//       success: true,
+//       message: "Collection added",
+//       id: result.insertId,
+//       created_at: formattedIdtDateTime,
+//     });
+//   } catch (err) {
+//     console.error("Error creating collection:", err);
+//     res.status(500).json({ success: false, message: "Server error" });
+//   }
+// }
 
 
 // Get all collections

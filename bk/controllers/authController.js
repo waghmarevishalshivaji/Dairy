@@ -443,7 +443,7 @@ async function registefarmer(req, res) {
 
 
     if (existingUser.length > 0) {
-      return res.status(400).json({ message: 'Username or mobile number already exists', success : false });
+      return res.status(200).json({ message: 'Username or mobile number already exists', success : false });
     }
 
     // Hash the password before storing it in the database

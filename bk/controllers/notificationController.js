@@ -1,5 +1,8 @@
 const db = require("../config/db");
 
+const { sendPushNotification } = require('../utils/notification');
+
+
 // Manager sends notification
 async function sendNotification(req, res) {
   try {
@@ -60,4 +63,38 @@ async function getNotifications(req, res) {
   }
 }
 
-module.exports = { sendNotification, getNotifications };
+async function sendDairyNotification(req, res) {
+  try {
+    const { dairy_id, title, body } = req.body;
+
+    // if (!dairy_id || !title || !body) {
+    //   return res.status(400).json({ success: false, message: "dairy_id, title and body required" });
+    // }
+
+    // // Fetch farmer tokens from DB
+    // const [farmers] = await db.execute(
+    //   `SELECT expo_push_token FROM users WHERE dairy_id = ? AND expo_push_token IS NOT NULL`,
+    //   [dairy_id]
+    // );
+
+    const tokens = "ExponentPushToken[Kg3Ah2KUFOYiQ3Fgljr_pu]"; //farmers.map(f => f.expo_push_token);
+
+    if (tokens.length === 0) {
+      return res.status(200).json({ success: true, message: "No farmers with push tokens" });
+    }
+
+    // Send notifications
+    const tickets = await sendPushNotification(tokens, title, body, { dairy_id });
+
+    res.status(200).json({
+      success: true,
+      message: "Notification sent",
+      tickets,
+    });
+  } catch (err) {
+    console.error("Error in sendDairyNotification:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+}
+
+module.exports = { sendNotification, getNotifications, sendDairyNotification };

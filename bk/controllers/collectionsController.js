@@ -43,12 +43,29 @@ async function createCollection(req, res) {
 
     // 2️⃣ Fetch farmer Expo token
     const [farmerRows] = await db.execute(
-      `SELECT expo_token, username FROM users WHERE farmer_id = ? AND dairy_id = ?`,
+      `SELECT expo_token, username FROM users WHERE username = ? AND dairy_id = ?`,
       [farmer_id, dairy_id]
     );
 
+    const io = req.app.get("io");
+
+  
+
     if (farmerRows.length > 0) {
       const { expo_token, username } = farmerRows[0];
+
+      let titlesocket = "Milk Collection Update";
+      let message = `Dear ${username || 'Farmer'}, your ${type} milk collection of ${quantity}L has been recorded successfully.`;
+      // let dairy_id = dairy_id;
+      // let farmer_id = "Milk Collection Update";
+      // Emit to all farmers of this dairy
+      io.to(`dairy_${dairy_id}`).emit("newNotification", {
+        titlesocket,
+        message,
+        dairy_id,
+        farmer_id,
+        timestamp: new Date()
+      });
 
       if (expo_token && Expo.isExpoPushToken(expo_token)) {
         const messages = [{

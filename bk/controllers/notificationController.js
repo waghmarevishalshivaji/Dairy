@@ -76,7 +76,8 @@ async function sendDairyNotification(req, res) {
         farmer_id = "No"
     }
 
-     io.to(`dairy_${dairy_id}`).emit("newNotification", {
+    const io = req.app.get("io");
+    io.to(`dairy_${dairy_id}`).emit("newNotification", {
       title,
       body,
       dairy_id,

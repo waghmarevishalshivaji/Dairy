@@ -67,17 +67,17 @@ async function sendDairyNotification(req, res) {
   try {
     const { dairy_id, title, body } = req.body;
 
-    // if (!dairy_id || !title || !body) {
-    //   return res.status(400).json({ success: false, message: "dairy_id, title and body required" });
-    // }
+    if (!dairy_id || !title || !body) {
+      return res.status(400).json({ success: false, message: "dairy_id, title and body required" });
+    }
 
-    // // Fetch farmer tokens from DB
-    // const [farmers] = await db.execute(
-    //   `SELECT expo_push_token FROM users WHERE dairy_id = ? AND expo_push_token IS NOT NULL`,
-    //   [dairy_id]
-    // );
+    // Fetch farmer tokens from DB
+    const [farmers] = await db.execute(
+      `SELECT expo_token FROM users WHERE dairy_id = ? AND expo_push_token IS NOT NULL`,
+      [dairy_id]
+    );
 
-    const tokens = "ExponentPushToken[Kg3Ah2KUFOYiQ3Fgljr_pu]"; //farmers.map(f => f.expo_push_token);
+    const tokens = farmers.map(f => f.expo_push_token);
 
     if (tokens.length === 0) {
       return res.status(200).json({ success: true, message: "No farmers with push tokens" });

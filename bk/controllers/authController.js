@@ -601,6 +601,37 @@ async function updateUser(req, res) {
 }
 
 
+// Logout API
+async function logout(req, res) {
+  try {
+    const { user_id } = req.body;
+
+    if (!user_id) {
+      return res.status(400).json({ success: false, message: "user_id is required" });
+    }
+
+    // Clear expo_token
+    const [result] = await db.execute(
+      `UPDATE users SET expo_token = '' WHERE id = ?`,
+      [user_id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Logged out successfully. Expo token cleared."
+    });
+  } catch (err) {
+    console.error("Error during logout:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+}
+
+
+
 
 module.exports = {
     generateOTP,
@@ -613,5 +644,6 @@ module.exports = {
     registefarmerid,
     updateUser,
     getNextFarmerId,
-    resetPasswordUsername
+    resetPasswordUsername,
+    logout
 };

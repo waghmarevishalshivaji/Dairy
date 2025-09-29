@@ -49,7 +49,7 @@ async function register(req, res) {
 
 
 async function login(req, res) {
-  const { username, password, mobile_number } = req.body;
+  const { username, password, mobile_number, role } = req.body;
 
   // Ensure at least one of username or mobile number is provided
   if (!username && !mobile_number) {
@@ -66,11 +66,11 @@ async function login(req, res) {
     
     // Determine if we are using username or mobile_number to search for the user
     if (username) {
-      query = 'SELECT * FROM users WHERE username = ?';  // Corrected query
-      params = [username];
+      query = 'SELECT * FROM users WHERE username = ? AND role = ?';  // Corrected query
+      params = [username, role];
     } else if (mobile_number) {
-      query = 'SELECT * FROM users WHERE mobile_number = ?';  // Corrected query
-      params = [mobile_number];
+      query = 'SELECT * FROM users WHERE mobile_number = ? AND role = ?';  // Corrected query
+      params = [mobile_number, role];
     }
 
     console.log(query, params);
@@ -389,7 +389,7 @@ async function resetPasswordUsername(req, res) {
 }
 
 async function updateConfirm(req, res) {
-  const { user_id } = req.body; // Expecting user_id in the payload to update the confirm column
+  const { user_id, role } = req.body; // Expecting user_id in the payload to update the confirm column
 
   // Validate input
   if (!user_id) {
@@ -398,7 +398,7 @@ async function updateConfirm(req, res) {
 
   try {
     // Query the database to find the user by ID
-    const [rows] = await db.execute('SELECT * FROM users WHERE username = ?', [user_id]);
+    const [rows] = await db.execute('SELECT * FROM users WHERE username = ? AND role = ?', [user_id, role]);
 
     if (rows.length === 0) {
       return res.status(400).json({ message: 'User not found', success : false });

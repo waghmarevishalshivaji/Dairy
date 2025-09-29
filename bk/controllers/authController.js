@@ -398,7 +398,7 @@ async function updateConfirm(req, res) {
 
   try {
     // Query the database to find the user by ID
-    const [rows] = await db.execute('SELECT * FROM users WHERE username = ? AND role = ?', [user_id, role]);
+    const [rows] = await db.execute('SELECT * FROM users WHERE id = ? AND role = ?', [user_id, role]);
 
     if (rows.length === 0) {
       return res.status(400).json({ message: 'User not found', success : false });
@@ -406,7 +406,7 @@ async function updateConfirm(req, res) {
 
     // Update the 'confirm' column to true for the given user
     const [updateResult] = await db.execute(
-      'UPDATE users SET confirm = true WHERE username = ?',
+      'UPDATE users SET confirm = true WHERE id = ?',
       [user_id]
     );
 

@@ -48,7 +48,7 @@ const bcrypt = require('bcryptjs');
 
 async function generateBill(req, res) {
   try {
-    const { farmer_id, dairy_id, date } = req.body;
+    const { farmer_id, dairy_id, date, milk_total, net_payable, remaining_advance, total_advance  } = req.body;
 
     if (!farmer_id || !dairy_id || !date) {
       return res.status(400).json({ error: "farmer_id, dairy_id and date are required" });

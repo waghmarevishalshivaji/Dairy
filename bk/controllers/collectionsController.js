@@ -10,14 +10,48 @@ async function createCollection(req, res) {
 
   try {
     // Use provided date OR default to now (IST)
+    // let currentDate;
+    // if (date) {
+    //   currentDate = new Date(`${date}T00:00:00+05:30`);
+    // } else {
+    //   currentDate = new Date();
+    // }
+
+    // // Convert to IST formatted string
+    // const istDateTime = currentDate.toLocaleString("en-US", {
+    //   timeZone: "Asia/Kolkata",
+    //   year: "numeric",
+    //   month: "2-digit",
+    //   day: "2-digit",
+    //   hour: "2-digit",
+    //   minute: "2-digit",
+    //   second: "2-digit",
+    //   hourCycle: "h23",
+    // });
+
+    // const [datePart, timePart] = istDateTime.split(", ");
+    // const [month, day, year] = datePart.split("/");
+    // const formattedIdtDateTime = `${year}-${month}-${day} ${timePart}`;
+
+    // // 1️⃣ Insert collection
+    // const [result] = await db.execute(
+    //   `INSERT INTO collections 
+    //    (farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, created_at)
+    //    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    //   [farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, formattedIdtDateTime]
+    // );
+
     let currentDate;
+
     if (date) {
-      currentDate = new Date(`${date}T00:00:00+05:30`);
+      // If frontend sends full "YYYY-MM-DD HH:mm:ss"
+      currentDate = new Date(date.replace(" ", "T") + "+05:30");
     } else {
+      // Default to now
       currentDate = new Date();
     }
 
-    // Convert to IST formatted string
+    // Format IST datetime → "YYYY-MM-DD HH:mm:ss"
     const istDateTime = currentDate.toLocaleString("en-US", {
       timeZone: "Asia/Kolkata",
       year: "numeric",
@@ -26,14 +60,13 @@ async function createCollection(req, res) {
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
-      hourCycle: "h23",
+      hourCycle: "h23"
     });
 
     const [datePart, timePart] = istDateTime.split(", ");
     const [month, day, year] = datePart.split("/");
     const formattedIdtDateTime = `${year}-${month}-${day} ${timePart}`;
 
-    // 1️⃣ Insert collection
     const [result] = await db.execute(
       `INSERT INTO collections 
        (farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, created_at)
@@ -797,16 +830,29 @@ async function getTodaysCollectionfarmer(req, res) {
   }
 }
 
-
 async function getCollectionBytab(req, res) {
   let { farmer_id, shift, type, date, dairy_id } = req.query;
 
   try {
-    let query = 'SELECT coll.*, usr.fullName as fname FROM collections as coll LEFT JOIN users as usr ON usr.username = coll.farmer_id';
+    // Base query: now we select farmer name with a subquery (avoids duplicate rows from JOIN)
+    // let query = `
+    //   SELECT coll.*,
+    //          (SELECT u.fullName 
+    //           FROM users u 
+    //           WHERE u.username = coll.farmer_id 
+    //           LIMIT 1) as fname
+    //   FROM collections as coll
+    // `;
+
+    let query = `
+      SELECT coll.*,
+             u.fullName as fname
+      FROM collections coll
+      JOIN users u ON u.username = coll.farmer_id
+    `;
+
     const conditions = [];
     const params = [];
-
-    console.log(query)
 
     // Add filters based on query params
     if (farmer_id) {
@@ -821,18 +867,26 @@ async function getCollectionBytab(req, res) {
       conditions.push('coll.type = ?');
       params.push(type);
     }
-
     if (date) {
       conditions.push('DATE(coll.created_at) = ?');
       params.push(date);
+    }
+    // if (dairy_id) {
+    //   conditions.push('coll.dairy_id = ?');
+    //   params.push(dairy_id);
+    // }
+
+    if (dairy_id) {
+      // ✅ Ensure dairy match in BOTH collections and users
+      conditions.push('coll.dairy_id = ?');
+      conditions.push('u.dairy_id = ?');
+      params.push(dairy_id, dairy_id);
     }
 
     if (dairy_id) {
       conditions.push('coll.dairy_id = ?');
       params.push(dairy_id);
     }
-
-    
 
     if (conditions.length > 0) {
       query += ' WHERE ' + conditions.join(' AND ');
@@ -851,7 +905,6 @@ async function getCollectionBytab(req, res) {
     const collectionData = {};
 
     rows.forEach(record => {
-      // Adjust date field name as per your schema
       const dateObj = new Date(record.created_at);
       const day = String(dateObj.getDate()).padStart(2, '0');
       const month = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -862,15 +915,13 @@ async function getCollectionBytab(req, res) {
         collectionData[dateKey] = [];
       }
 
-      // Push only the needed fields
       collectionData[dateKey].push({
         type: record.type,
         qty: record.quantity,
         fat: record.fat,
         snf: record.snf,
         rate: record.rate,
-        amount: record.rate,
-        type: record.type,
+        amount: (record.quantity * record.rate).toFixed(2), // fixed: amount = qty * rate
         shift: record.shift,
         fname: record.fname,
       });
@@ -893,6 +944,103 @@ async function getCollectionBytab(req, res) {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 }
+
+
+// async function getCollectionBytab(req, res) {
+//   let { farmer_id, shift, type, date, dairy_id } = req.query;
+
+//   try {
+//     let query = 'SELECT coll.*, usr.fullName as fname FROM collections as coll LEFT JOIN users as usr ON usr.username = coll.farmer_id';
+//     const conditions = [];
+//     const params = [];
+
+//     console.log(query)
+
+//     // Add filters based on query params
+//     if (farmer_id) {
+//       conditions.push('coll.farmer_id = ?');
+//       params.push(farmer_id);
+//     }
+//     if (shift) {
+//       conditions.push('coll.shift = ?');
+//       params.push(shift);
+//     }
+//     if (type && type !== 'Both') {
+//       conditions.push('coll.type = ?');
+//       params.push(type);
+//     }
+
+//     if (date) {
+//       conditions.push('DATE(coll.created_at) = ?');
+//       params.push(date);
+//     }
+
+//     if (dairy_id) {
+//       conditions.push('coll.dairy_id = ?');
+//       params.push(dairy_id);
+//     }
+
+    
+
+//     if (conditions.length > 0) {
+//       query += ' WHERE ' + conditions.join(' AND ');
+//     }
+
+//     console.log('QUERY:', query);
+//     console.log('PARAMS:', params);
+
+//     const [rows] = await db.execute(query, params);
+
+//     if (rows.length === 0) {
+//       return res.status(200).json({ success: false, message: 'Collection not found' });
+//     }
+
+//     // Group records by formatted date
+//     const collectionData = {};
+
+//     rows.forEach(record => {
+//       // Adjust date field name as per your schema
+//       const dateObj = new Date(record.created_at);
+//       const day = String(dateObj.getDate()).padStart(2, '0');
+//       const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+//       const year = dateObj.getFullYear();
+//       const dateKey = `${day}-${month}-${year}`;
+
+//       if (!collectionData[dateKey]) {
+//         collectionData[dateKey] = [];
+//       }
+
+//       // Push only the needed fields
+//       collectionData[dateKey].push({
+//         type: record.type,
+//         qty: record.quantity,
+//         fat: record.fat,
+//         snf: record.snf,
+//         rate: record.rate,
+//         amount: record.rate,
+//         type: record.type,
+//         shift: record.shift,
+//         fname: record.fname,
+//       });
+//     });
+
+//     // Convert object to array with desired structure
+//     const resultArray = Object.keys(collectionData).map(date => ({
+//       date,
+//       collections: collectionData[date],
+//     }));
+
+//     res.status(200).json({
+//       result: 1,
+//       success: true,
+//       message: 'Success',
+//       data: resultArray,
+//     });
+//   } catch (err) {
+//     console.error('Error fetching collection:', err);
+//     res.status(500).json({ success: false, message: 'Server error' });
+//   }
+// }
 
 
 
@@ -922,6 +1070,104 @@ async function getCollectionBytab(req, res) {
 //         res.status(500).json({ message: 'Server error' });
 //     }
 // }
+
+// async function getCollectionBytab(req, res) {
+//   let { farmer_id, shift, type, date, dairy_id } = req.query;
+
+//   try {
+//     let query = `
+//       SELECT coll.id, coll.farmer_id, coll.type, coll.quantity, coll.fat, coll.snf,
+//              coll.rate, coll.shift, coll.created_at, usr.fullName as fname
+//       FROM collections coll
+//       INNER JOIN users usr 
+//         ON usr.username = coll.farmer_id
+//     `;
+//     const conditions = [];
+//     const params = [];
+
+//     if (farmer_id) {
+//       conditions.push('coll.farmer_id = ?');
+//       params.push(farmer_id);
+//     }
+//     if (shift) {
+//       conditions.push('coll.shift = ?');
+//       params.push(shift);
+//     }
+//     if (type && type !== 'Both') {
+//       conditions.push('coll.type = ?');
+//       params.push(type);
+//     }
+//     // if (date) {
+//     //   conditions.push('DATE(coll.created_at) = ?');
+//     //   params.push(date);
+//     // }
+
+//     if (date) {
+//       conditions.push('DATE(coll.created_at) = ?');
+//       params.push(new Date(date).toISOString().slice(0, 10)); // ensures YYYY-MM-DD
+//     }
+
+//     if (dairy_id) {
+//       conditions.push('coll.dairy_id = ?');
+//       params.push(dairy_id);
+//     }
+
+//     if (conditions.length > 0) {
+//       query += ' WHERE ' + conditions.join(' AND ');
+//     }
+
+//     query += ' ORDER BY coll.created_at DESC';
+
+//     const [rows] = await db.execute(query, params);
+
+//     if (rows.length === 0) {
+//       return res.status(200).json({ success: false, message: 'Collection not found' });
+//     }
+
+//     // Group by date
+//     const collectionData = {};
+//     rows.forEach(record => {
+//       const dateObj = new Date(record.created_at);
+//       const day = String(dateObj.getDate()).padStart(2, '0');
+//       const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+//       const year = dateObj.getFullYear();
+//       const dateKey = `${day}-${month}-${year}`;
+
+//       if (!collectionData[dateKey]) {
+//         collectionData[dateKey] = [];
+//       }
+
+//       collectionData[dateKey].push({
+//         id: record.id,
+//         farmer_id: record.farmer_id,
+//         fname: record.fname,
+//         type: record.type,
+//         qty: Number(record.quantity),
+//         fat: Number(record.fat),
+//         snf: Number(record.snf),
+//         rate: Number(record.rate),
+//         amount: Number(record.quantity) * Number(record.rate),
+//         shift: record.shift,
+//       });
+//     });
+
+//     const resultArray = Object.keys(collectionData).map(date => ({
+//       date,
+//       collections: collectionData[date],
+//     }));
+
+//     res.status(200).json({
+//       result: 1,
+//       success: true,
+//       message: 'Success',
+//       data: resultArray,
+//     });
+//   } catch (err) {
+//     console.error('Error fetching collection:', err);
+//     res.status(500).json({ success: false, message: 'Server error' });
+//   }
+// }
+
 
 async function updateCollection(req, res) {
   const { id } = req.params;

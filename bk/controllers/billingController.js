@@ -1,10 +1,79 @@
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 
+// async function generateBill(req, res) {
+//   try {
+//     const { farmer_id, period_start, period_end, dairy_id } = req.body;
+
+//     const [[milk]] = await db.query(
+//       `SELECT SUM(quantity*rate) as milk_total
+//        FROM collections
+//        WHERE farmer_id=? AND dairy_id=? AND DATE(created_at) BETWEEN ? AND ?`,
+//       [farmer_id, dairy_id, period_start, period_end]
+//     );
+
+//     const [[payments]] = await db.query(
+//       `SELECT SUM(amount_taken) as advance_total, SUM(received) as received_total
+//        FROM farmer_payments
+//        WHERE farmer_id=? AND dairy_id=? AND date BETWEEN ? AND ?`,
+//       [farmer_id, dairy_id, period_start, period_end]
+//     );
+
+//     const milkTotal = milk.milk_total || 0;
+//     const advanceTotal = payments.advance_total || 0;
+//     const receivedTotal = payments.received_total || 0;
+//     const netPayable = milkTotal - advanceTotal + receivedTotal;
+
+//     const [result] = await db.query(
+//       `INSERT INTO bills (farmer_id, dairy_id, period_start, period_end, milk_total, advance_total, received_total, net_payable, status, is_finalized)
+//        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)`,
+//       [farmer_id, dairy_id, period_start, period_end, milkTotal, advanceTotal, receivedTotal, netPayable]
+//     );
+
+//     res.json({
+//       bill_id: result.insertId,
+//       farmer_id,
+//       dairy_id,
+//       milkTotal,
+//       advanceTotal,
+//       receivedTotal,
+//       netPayable,
+//       status: "pending"
+//     });
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// };
+
+
 async function generateBill(req, res) {
   try {
-    const { farmer_id, period_start, period_end, dairy_id } = req.body;
+    const { farmer_id, dairy_id, date } = req.body;
 
+    if (!farmer_id || !dairy_id || !date) {
+      return res.status(400).json({ error: "farmer_id, dairy_id and date are required" });
+    }
+
+    // 1. Work out cycle (1–10, 11–20, 21–end)
+    const billDate = new Date(date);
+    const year = billDate.getFullYear();
+    const month = billDate.getMonth(); // 0-based
+    const day = billDate.getDate();
+
+    let period_start, period_end;
+    if (day <= 10) {
+      period_start = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+      period_end = `${year}-${String(month + 1).padStart(2, "0")}-10`;
+    } else if (day <= 20) {
+      period_start = `${year}-${String(month + 1).padStart(2, "0")}-11`;
+      period_end = `${year}-${String(month + 1).padStart(2, "0")}-20`;
+    } else {
+      const lastDay = new Date(year, month + 1, 0).getDate(); // last day of month
+      period_start = `${year}-${String(month + 1).padStart(2, "0")}-21`;
+      period_end = `${year}-${String(month + 1).padStart(2, "0")}-${lastDay}`;
+    }
+
+    // 2. Calculate totals (milk + payments)
     const [[milk]] = await db.query(
       `SELECT SUM(quantity*rate) as milk_total
        FROM collections
@@ -15,7 +84,7 @@ async function generateBill(req, res) {
     const [[payments]] = await db.query(
       `SELECT SUM(amount_taken) as advance_total, SUM(received) as received_total
        FROM farmer_payments
-       WHERE farmer_id=? AND dairy_id=? AND date BETWEEN ? AND ?`,
+       WHERE farmer_id=? AND dairy_id=? AND DATE(date) BETWEEN ? AND ?`,
       [farmer_id, dairy_id, period_start, period_end]
     );
 
@@ -24,26 +93,165 @@ async function generateBill(req, res) {
     const receivedTotal = payments.received_total || 0;
     const netPayable = milkTotal - advanceTotal + receivedTotal;
 
-    const [result] = await db.query(
-      `INSERT INTO bills (farmer_id, dairy_id, period_start, period_end, milk_total, advance_total, received_total, net_payable, status, is_finalized)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)`,
-      [farmer_id, dairy_id, period_start, period_end, milkTotal, advanceTotal, receivedTotal, netPayable]
+    // 3. Check if bill exists for this farmer & cycle
+    const [existing] = await db.query(
+      `SELECT id FROM bills 
+       WHERE farmer_id=? AND dairy_id=? AND period_start=? AND period_end=?`,
+      [farmer_id, dairy_id, period_start, period_end]
     );
 
+    let billId;
+    if (existing.length > 0) {
+      // 4. Update existing bill
+      billId = existing[0].id;
+      await db.query(
+        `UPDATE bills 
+         SET milk_total=?, advance_total=?, received_total=?, net_payable=?, status='pending', is_finalized=0 
+         WHERE id=?`,
+        [milkTotal, advanceTotal, receivedTotal, netPayable, billId]
+      );
+    } else {
+      // 5. Insert new bill
+      const [result] = await db.query(
+        `INSERT INTO bills (farmer_id, dairy_id, period_start, period_end, milk_total, advance_total, received_total, net_payable, status, is_finalized)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)`,
+        [farmer_id, dairy_id, period_start, period_end, milkTotal, advanceTotal, receivedTotal, netPayable]
+      );
+      billId = result.insertId;
+    }
+
+    // 6. Return response
     res.json({
-      bill_id: result.insertId,
+      bill_id: billId,
       farmer_id,
       dairy_id,
+      period_start,
+      period_end,
       milkTotal,
       advanceTotal,
       receivedTotal,
       netPayable,
       status: "pending"
     });
+
   } catch (err) {
+    console.error("Error generating bill:", err);
     res.status(500).json({ error: err.message });
   }
-};
+}
+
+async function generateBills(req, res) {
+  try {
+    const { records, dairy_id } = req.body;
+
+    if (!dairy_id || !Array.isArray(records) || records.length === 0) {
+      return res.status(400).json({ error: "dairy_id and records[] are required" });
+    }
+
+    const results = [];
+
+    for (const rec of records) {
+      const { farmer_id, date } = rec;
+
+      if (!farmer_id || !date) {
+        results.push({ farmer_id, error: "farmer_id and date are required" });
+        continue;
+      }
+
+      // ---- 1. Work out cycle (1–10, 11–20, 21–end) ----
+      const billDate = new Date(date);
+      const year = billDate.getFullYear();
+      const month = billDate.getMonth(); // 0-based
+      const day = billDate.getDate();
+
+      let period_start, period_end;
+      if (day <= 10) {
+        period_start = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+        period_end = `${year}-${String(month + 1).padStart(2, "0")}-10`;
+      } else if (day <= 20) {
+        period_start = `${year}-${String(month + 1).padStart(2, "0")}-11`;
+        period_end = `${year}-${String(month + 1).padStart(2, "0")}-20`;
+      } else {
+        const lastDay = new Date(year, month + 1, 0).getDate(); // last day of month
+        period_start = `${year}-${String(month + 1).padStart(2, "0")}-21`;
+        period_end = `${year}-${String(month + 1).padStart(2, "0")}-${lastDay}`;
+      }
+
+      // ---- 2. Calculate totals (milk + payments) ----
+      const [[milk]] = await db.query(
+        `SELECT SUM(quantity*rate) as milk_total
+         FROM collections
+         WHERE farmer_id=? AND dairy_id=? AND DATE(created_at) BETWEEN ? AND ?`,
+        [farmer_id, dairy_id, period_start, period_end]
+      );
+
+      const [[payments]] = await db.query(
+        `SELECT SUM(amount_taken) as advance_total, SUM(received) as received_total
+         FROM farmer_payments
+         WHERE farmer_id=? AND dairy_id=? AND DATE(date) BETWEEN ? AND ?`,
+        [farmer_id, dairy_id, period_start, period_end]
+      );
+
+      const milkTotal = milk.milk_total || 0;
+      const advanceTotal = payments.advance_total || 0;
+      const receivedTotal = payments.received_total || 0;
+      const netPayable = milkTotal - advanceTotal + receivedTotal;
+
+      // ---- 3. Check if bill exists ----
+      const [existing] = await db.query(
+        `SELECT id FROM bills 
+         WHERE farmer_id=? AND dairy_id=? AND period_start=? AND period_end=?`,
+        [farmer_id, dairy_id, period_start, period_end]
+      );
+
+      let billId;
+      if (existing.length > 0) {
+        // Update existing
+        billId = existing[0].id;
+        await db.query(
+          `UPDATE bills 
+           SET milk_total=?, advance_total=?, received_total=?, net_payable=?, status='pending', is_finalized=0 
+           WHERE id=?`,
+          [milkTotal, advanceTotal, receivedTotal, netPayable, billId]
+        );
+      } else {
+        // Insert new
+        const [result] = await db.query(
+          `INSERT INTO bills (farmer_id, dairy_id, period_start, period_end, milk_total, advance_total, received_total, net_payable, status, is_finalized)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)`,
+          [farmer_id, dairy_id, period_start, period_end, milkTotal, advanceTotal, receivedTotal, netPayable]
+        );
+        billId = result.insertId;
+      }
+
+      results.push({
+        farmer_id,
+        bill_id: billId,
+        dairy_id,
+        period_start,
+        period_end,
+        milkTotal,
+        advanceTotal,
+        receivedTotal,
+        netPayable,
+        status: "pending"
+      });
+    }
+
+    // Final response
+    res.json({
+      success: true,
+      dairy_id,
+      totalRecords: results.length,
+      bills: results
+    });
+
+  } catch (err) {
+    console.error("Error generating bills:", err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
 
 
 async function updateBill(req, res) {
@@ -126,6 +334,7 @@ async function getFarmerBalance(req, res) {
 
 module.exports = {
     generateBill,
+    generateBills,
     updateBill,
     finalizeBill,
     getFarmerBalance

@@ -45,6 +45,134 @@ const bcrypt = require('bcryptjs');
 //   }
 // };
 
+// async function generateBill(req, res) {
+//   try {
+//     const {
+//       farmer_id,
+//       dairy_id,
+//       period_start,
+//       period_end,
+//       milk_total,
+//       net_payable,
+//       total_advance,
+//       total_feed,
+//       total_other,
+//       total_received,
+//       remaining_advance,
+//       remaining_cattle_feed,
+//       remaining_other1,
+//       remaining_other2
+//     } = req.body;
+
+//     // If values not passed from frontend, fallback to DB calculation
+//     let milkTotal = Number(milk_total) || 0;
+//     let advanceTotal = Number(total_advance) || 0;
+//     let receivedTotal = Number(total_received) || 0;
+//     let feedTotal = Number(total_feed) || 0;
+//     let otherTotal = Number(total_other) || 0;
+//     let netPayable = Number(net_payable) || (milkTotal - advanceTotal - feedTotal - otherTotal + receivedTotal);
+
+//     // Insert into bills
+//     const [result] = await db.query(
+//       `INSERT INTO bills (
+//         farmer_id, dairy_id, period_start, period_end,
+//         milk_total, advance_total, feed_total, other_total,
+//         received_total, net_payable,
+//         remaining_advance, remaining_cattle_feed, remaining_other1, remaining_other2,
+//         status, is_finalized
+//       )
+//       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)`,
+//       [
+//         farmer_id, dairy_id, period_start, period_end,
+//         milkTotal, advanceTotal, feedTotal, otherTotal,
+//         receivedTotal, netPayable,
+//         Number(remaining_advance) || 0,
+//         Number(remaining_cattle_feed) || 0,
+//         Number(remaining_other1) || 0,
+//         Number(remaining_other2) || 0
+//       ]
+//     );
+
+//     res.json({
+//       success: true,
+//       bill_id: result.insertId,
+//       farmer_id,
+//       dairy_id,
+//       milkTotal,
+//       advanceTotal,
+//       feedTotal,
+//       otherTotal,
+//       receivedTotal,
+//       netPayable,
+//       remaining: {
+//         advance: Number(remaining_advance) || 0,
+//         cattle_feed: Number(remaining_cattle_feed) || 0,
+//         other1: Number(remaining_other1) || 0,
+//         other2: Number(remaining_other2) || 0
+//       },
+//       status: "pending"
+//     });
+//   } catch (err) {
+//     console.error("Error generating bill:", err);
+//     res.status(500).json({ error: err.message });
+//   }
+// }
+
+// async function generateBill(req, res) {
+//   try {
+//     const {
+//       farmer_id,
+//       dairy_id,
+//       period_start,
+//       period_end,
+//       milk_total,
+//       advance_total,
+//       received_total,
+//       net_payable
+//     } = req.body;
+
+//     // Use payload values, fallback to 0
+//     const milkTotal = Number(milk_total) || 0;
+//     const advanceTotal = Number(advance_total) || 0;
+//     const receivedTotal = Number(received_total) || 0;
+//     const netPayable = Number(net_payable) || (milkTotal - advanceTotal + receivedTotal);
+
+//     // Insert into bills
+//     const [result] = await db.query(
+//       `INSERT INTO bills (
+//         farmer_id, dairy_id, period_start, period_end,
+//         milk_total, advance_total, received_total, net_payable, status, is_finalized
+//       )
+//       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)`,
+//       [
+//         farmer_id,
+//         dairy_id,
+//         period_start,
+//         period_end,
+//         milkTotal,
+//         advanceTotal,
+//         receivedTotal,
+//         netPayable
+//       ]
+//     );
+
+//     res.json({
+//       success: true,
+//       bill_id: result.insertId,
+//       farmer_id,
+//       dairy_id,
+//       milkTotal,
+//       advanceTotal,
+//       receivedTotal,
+//       netPayable,
+//       status: "pending"
+//     });
+//   } catch (err) {
+//     console.error("Error generating bill:", err);
+//     res.status(500).json({ error: err.message });
+//   }
+// }
+
 async function generateBill(req, res) {
   try {
     const {
@@ -53,63 +181,54 @@ async function generateBill(req, res) {
       period_start,
       period_end,
       milk_total,
-      net_payable,
-      total_advance,
-      total_feed,
-      total_other,
-      total_received,
-      remaining_advance,
-      remaining_cattle_feed,
-      remaining_other1,
-      remaining_other2
+      advance_total,
+      received_total,
+      net_payable
     } = req.body;
 
-    // If values not passed from frontend, fallback to DB calculation
-    let milkTotal = Number(milk_total) || 0;
-    let advanceTotal = Number(total_advance) || 0;
-    let receivedTotal = Number(total_received) || 0;
-    let feedTotal = Number(total_feed) || 0;
-    let otherTotal = Number(total_other) || 0;
-    let netPayable = Number(net_payable) || (milkTotal - advanceTotal - feedTotal - otherTotal + receivedTotal);
+    // Ensure numeric values
+    const milkTotal = Number(milk_total) || 0;
+    const advanceTotal = Number(advance_total) || 0;
+    const receivedTotal = Number(received_total) || 0;
+    const netPayable = Number(net_payable) || (milkTotal - advanceTotal + receivedTotal);
 
-    // Insert into bills
+    // Upsert query → insert if not exists, else update
     const [result] = await db.query(
       `INSERT INTO bills (
         farmer_id, dairy_id, period_start, period_end,
-        milk_total, advance_total, feed_total, other_total,
-        received_total, net_payable,
-        remaining_advance, remaining_cattle_feed, remaining_other1, remaining_other2,
-        status, is_finalized
+        milk_total, advance_total, received_total, net_payable, status, is_finalized
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)
+      ON DUPLICATE KEY UPDATE
+        milk_total = VALUES(milk_total),
+        advance_total = VALUES(advance_total),
+        received_total = VALUES(received_total),
+        net_payable = VALUES(net_payable),
+        status = 'pending',
+        is_finalized = 0`,
       [
-        farmer_id, dairy_id, period_start, period_end,
-        milkTotal, advanceTotal, feedTotal, otherTotal,
-        receivedTotal, netPayable,
-        Number(remaining_advance) || 0,
-        Number(remaining_cattle_feed) || 0,
-        Number(remaining_other1) || 0,
-        Number(remaining_other2) || 0
+        farmer_id,
+        dairy_id,
+        period_start,
+        period_end,
+        milkTotal,
+        advanceTotal,
+        receivedTotal,
+        netPayable
       ]
     );
 
     res.json({
       success: true,
-      bill_id: result.insertId,
+      action: result.affectedRows > 1 ? "updated" : "inserted",
       farmer_id,
       dairy_id,
+      period_start,
+      period_end,
       milkTotal,
       advanceTotal,
-      feedTotal,
-      otherTotal,
       receivedTotal,
       netPayable,
-      remaining: {
-        advance: Number(remaining_advance) || 0,
-        cattle_feed: Number(remaining_cattle_feed) || 0,
-        other1: Number(remaining_other1) || 0,
-        other2: Number(remaining_other2) || 0
-      },
       status: "pending"
     });
   } catch (err) {
@@ -117,6 +236,8 @@ async function generateBill(req, res) {
     res.status(500).json({ error: err.message });
   }
 }
+
+
 
 
 

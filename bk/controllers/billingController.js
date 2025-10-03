@@ -238,6 +238,95 @@ const bcrypt = require('bcryptjs');
 // }
 
 
+// async function generateBill(req, res) {
+//   try {
+//     const {
+//       farmer_id,
+//       dairy_id,
+//       period_start,
+//       period_end,
+//       milk_total,
+//       advance_total,
+//       received_total,
+//       net_payable,
+//       advance_remaining,
+//       cattlefeed_remaining,
+//       other1_remaining,
+//       other2_remaining
+//     } = req.body;
+
+//     // Ensure numeric values
+//     const milkTotal = Number(milk_total) || 0;
+//     const advanceTotal = Number(advance_total) || 0;
+//     const receivedTotal = Number(received_total) || 0;
+//     const netPayable =
+//       Number(net_payable) || (milkTotal - advanceTotal + receivedTotal);
+
+//     const advRemaining = Number(advance_remaining) || 0;
+//     const feedRemaining = Number(cattlefeed_remaining) || 0;
+//     const o1Remaining = Number(other1_remaining) || 0;
+//     const o2Remaining = Number(other2_remaining) || 0;
+
+//     // Upsert query → insert if not exists, else update
+//     const [result] = await db.query(
+//       `INSERT INTO bills (
+//         farmer_id, dairy_id, period_start, period_end,
+//         milk_total, advance_total, received_total, net_payable,
+//         advance_remaining, cattlefeed_remaining, other1_remaining, other2_remaining,
+//         status, is_finalized
+//       )
+//       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)
+//       ON DUPLICATE KEY UPDATE
+//         milk_total = VALUES(milk_total),
+//         advance_total = VALUES(advance_total),
+//         received_total = VALUES(received_total),
+//         net_payable = VALUES(net_payable),
+//         advance_remaining = VALUES(advance_remaining),
+//         cattlefeed_remaining = VALUES(cattlefeed_remaining),
+//         other1_remaining = VALUES(other1_remaining),
+//         other2_remaining = VALUES(other2_remaining),
+//         status = 'pending',
+//         is_finalized = 0`,
+//       [
+//         farmer_id,
+//         dairy_id,
+//         period_start,
+//         period_end,
+//         milkTotal,
+//         advanceTotal,
+//         receivedTotal,
+//         netPayable,
+//         advRemaining,
+//         feedRemaining,
+//         o1Remaining,
+//         o2Remaining
+//       ]
+//     );
+
+//     res.json({
+//       success: true,
+//       action: result.affectedRows > 1 ? "updated" : "inserted",
+//       farmer_id,
+//       dairy_id,
+//       period_start,
+//       period_end,
+//       milk_total: milkTotal,
+//       advance_total: advanceTotal,
+//       received_total: receivedTotal,
+//       net_payable: netPayable,
+//       advance_remaining: advRemaining,
+//       cattlefeed_remaining: feedRemaining,
+//       other1_remaining: o1Remaining,
+//       other2_remaining: o2Remaining,
+//       status: "pending"
+//     });
+//   } catch (err) {
+//     console.error("Error generating bill:", err);
+//     res.status(500).json({ error: err.message });
+//   }
+// }
+
+
 async function generateBill(req, res) {
   try {
     const {
@@ -252,30 +341,21 @@ async function generateBill(req, res) {
       advance_remaining,
       cattlefeed_remaining,
       other1_remaining,
-      other2_remaining
+      other2_remaining,
+      cattlefeed_total,
+      other1_total,
+      other2_total
     } = req.body;
 
-    // Ensure numeric values
-    const milkTotal = Number(milk_total) || 0;
-    const advanceTotal = Number(advance_total) || 0;
-    const receivedTotal = Number(received_total) || 0;
-    const netPayable =
-      Number(net_payable) || (milkTotal - advanceTotal + receivedTotal);
-
-    const advRemaining = Number(advance_remaining) || 0;
-    const feedRemaining = Number(cattlefeed_remaining) || 0;
-    const o1Remaining = Number(other1_remaining) || 0;
-    const o2Remaining = Number(other2_remaining) || 0;
-
-    // Upsert query → insert if not exists, else update
     const [result] = await db.query(
       `INSERT INTO bills (
         farmer_id, dairy_id, period_start, period_end,
         milk_total, advance_total, received_total, net_payable,
         advance_remaining, cattlefeed_remaining, other1_remaining, other2_remaining,
+        cattlefeed_total, other1_total, other2_total,
         status, is_finalized
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)
       ON DUPLICATE KEY UPDATE
         milk_total = VALUES(milk_total),
         advance_total = VALUES(advance_total),
@@ -285,6 +365,9 @@ async function generateBill(req, res) {
         cattlefeed_remaining = VALUES(cattlefeed_remaining),
         other1_remaining = VALUES(other1_remaining),
         other2_remaining = VALUES(other2_remaining),
+        cattlefeed_total = VALUES(cattlefeed_total),
+        other1_total = VALUES(other1_total),
+        other2_total = VALUES(other2_total),
         status = 'pending',
         is_finalized = 0`,
       [
@@ -292,14 +375,17 @@ async function generateBill(req, res) {
         dairy_id,
         period_start,
         period_end,
-        milkTotal,
-        advanceTotal,
-        receivedTotal,
-        netPayable,
-        advRemaining,
-        feedRemaining,
-        o1Remaining,
-        o2Remaining
+        milk_total || 0,
+        advance_total || 0,
+        received_total || 0,
+        net_payable || 0,
+        advance_remaining || 0,
+        cattlefeed_remaining || 0,
+        other1_remaining || 0,
+        other2_remaining || 0,
+        cattlefeed_total || 0,
+        other1_total || 0,
+        other2_total || 0
       ]
     );
 
@@ -310,14 +396,17 @@ async function generateBill(req, res) {
       dairy_id,
       period_start,
       period_end,
-      milk_total: milkTotal,
-      advance_total: advanceTotal,
-      received_total: receivedTotal,
-      net_payable: netPayable,
-      advance_remaining: advRemaining,
-      cattlefeed_remaining: feedRemaining,
-      other1_remaining: o1Remaining,
-      other2_remaining: o2Remaining,
+      milk_total,
+      advance_total,
+      received_total,
+      net_payable,
+      advance_remaining,
+      cattlefeed_remaining,
+      other1_remaining,
+      other2_remaining,
+      cattlefeed_total,
+      other1_total,
+      other2_total,
       status: "pending"
     });
   } catch (err) {

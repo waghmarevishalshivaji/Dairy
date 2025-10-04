@@ -1660,6 +1660,203 @@ async function getmonthpayment(req, res) {
 // }
 
 
+// async function getDairyBillSummary(req, res) {
+//   let { dairyid, datefrom, dateto } = req.query;
+//   if (!dairyid) {
+//     return res.status(400).json({ success: false, message: "dairyid is required" });
+//   }
+
+//   try {
+//     const conditions = ["dairy_id = ?"];
+//     const params = [dairyid];
+//     let stDate, endDate;
+
+//     if (datefrom && dateto) {
+//       stDate = datefrom.trim();
+//       endDate = dateto.trim();
+//       conditions.push("DATE(created_at) BETWEEN ? AND ?");
+//       params.push(stDate, endDate);
+//     } else if (datefrom) {
+//       stDate = datefrom.trim();
+//       conditions.push("DATE(created_at) >= ?");
+//       params.push(stDate);
+//     } else if (dateto) {
+//       endDate = dateto.trim();
+//       conditions.push("DATE(created_at) <= ?");
+//       params.push(endDate);
+//     }
+
+//     const collectionQuery = `
+//       SELECT farmer_id, SUM(quantity*rate) as milk_total
+//       FROM collections
+//       WHERE ${conditions.join(" AND ")}
+//       GROUP BY farmer_id
+//     `;
+
+//     const paymentQuery = `
+//       SELECT farmer_id,
+//              SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) as advance,
+//              SUM(CASE WHEN payment_type='cattle feed' THEN amount_taken ELSE 0 END) as cattle_feed,
+//              SUM(CASE WHEN payment_type='Other1' THEN amount_taken ELSE 0 END) as other1,
+//              SUM(CASE WHEN payment_type='Other2' THEN amount_taken ELSE 0 END) as other2,
+//              SUM(amount_taken) as total_deductions,
+//              SUM(received) as total_received
+//       FROM farmer_payments
+//       WHERE dairy_id = ?
+//       GROUP BY farmer_id
+//     `;
+//     const payParams = [dairyid];
+
+//     const billQuery = `
+//       SELECT farmer_id,
+//             milk_total, advance_total, received_total, net_payable,
+//             advance_remaining, cattlefeed_remaining, other1_remaining, other2_remaining,
+//             cattlefeed_total, other1_total, other2_total,
+//             period_start, period_end, status, is_finalized
+//       FROM bills
+//       WHERE dairy_id = ?
+//       ORDER BY farmer_id, period_start
+//     `;
+//     const billParams = [dairyid];
+
+//     const [collections] = await db.execute(collectionQuery, params);
+//     const [payments] = await db.execute(paymentQuery, payParams);
+//     const [bills] = await db.execute(billQuery, billParams);
+
+//     const summary = {};
+
+//     // collections
+//     collections.forEach(c => {
+//       summary[c.farmer_id] = {
+//         farmer_id: c.farmer_id,
+//         milk_total: Number(c.milk_total) || 0,
+//         total_received: 0,
+//         deductions: { advance: 0, cattle_feed: 0, other1: 0, other2: 0, total: 0 },
+//         net_payable: Number(c.milk_total) || 0,
+//         from_bills: {
+//           milk_total: 0,
+//           advance_total: 0,
+//           received_total: 0,
+//           net_payable: 0,
+//           advance_remaining: 0,
+//           cattlefeed_remaining: 0,
+//           other1_remaining: 0,
+//           other2_remaining: 0,
+//           cattlefeed_total: 0,
+//           other1_total: 0,
+//           other2_total: 0
+//         }
+//       };
+//     });
+
+//     // payments
+//     payments.forEach(p => {
+//       if (!summary[p.farmer_id]) {
+//         summary[p.farmer_id] = {
+//           farmer_id: p.farmer_id,
+//           milk_total: 0,
+//           total_received: 0,
+//           deductions: { advance: 0, cattle_feed: 0, other1: 0, other2: 0, total: 0 },
+//           net_payable: 0,
+//           from_bills: {
+//             milk_total: 0,
+//             advance_total: 0,
+//             received_total: 0,
+//             net_payable: 0,
+//             advance_remaining: 0,
+//             cattlefeed_remaining: 0,
+//             other1_remaining: 0,
+//             other2_remaining: 0,
+//             cattlefeed_total: 0,
+//             other1_total: 0,
+//             other2_total: 0
+//           }
+//         };
+//       }
+//       summary[p.farmer_id].total_received = Number(p.total_received) || 0;
+//       summary[p.farmer_id].deductions = {
+//         advance: Number(p.advance) || 0,
+//         cattle_feed: Number(p.cattle_feed) || 0,
+//         other1: Number(p.other1) || 0,
+//         other2: Number(p.other2) || 0,
+//         total: Number(p.total_deductions) || 0
+//       };
+//       summary[p.farmer_id].net_payable =
+//         summary[p.farmer_id].milk_total -
+//         summary[p.farmer_id].deductions.total +
+//         summary[p.farmer_id].total_received;
+//     });
+
+//     // bills
+//     bills.forEach(b => {
+//       if (!summary[b.farmer_id]) {
+//         summary[b.farmer_id] = {
+//           farmer_id: b.farmer_id,
+//           milk_total: 0,
+//           total_received: 0,
+//           deductions: { advance: 0, cattle_feed: 0, other1: 0, other2: 0, total: 0 },
+//           net_payable: 0,
+//           from_bills: {
+//             milk_total: 0,
+//             advance_total: 0,
+//             received_total: 0,
+//             net_payable: 0,
+//             advance_remaining: 0,
+//             cattlefeed_remaining: 0,
+//             other1_remaining: 0,
+//             other2_remaining: 0,
+//             cattlefeed_total: 0,
+//             other1_total: 0,
+//             other2_total: 0
+//           }
+//         };
+//       }
+
+//       summary[b.farmer_id].from_bills = {
+//         milk_total: Number(b.milk_total) || 0,
+//         advance_total: Number(b.advance_total) || 0,
+//         received_total: Number(b.received_total) || 0,
+//         net_payable: Number(b.net_payable) || 0,
+//         advance_remaining: Number(b.advance_remaining) || 0,
+//         cattlefeed_remaining: Number(b.cattlefeed_remaining) || 0,
+//         other1_remaining: Number(b.other1_remaining) || 0,
+//         other2_remaining: Number(b.other2_remaining) || 0,
+//         cattlefeed_total: Number(b.cattlefeed_total) || 0,
+//         other1_total: Number(b.other1_total) || 0,
+//         other2_total: Number(b.other2_total) || 0
+//       };
+
+//       summary[b.farmer_id].milk_total += Number(b.milk_total) || 0;
+//       summary[b.farmer_id].total_received += Number(b.received_total) || 0;
+//       summary[b.farmer_id].net_payable += Number(b.net_payable) || 0;
+//     });
+
+//     const result = Object.values(summary);
+//     const grand = result.reduce(
+//       (acc, f) => {
+//         acc.milk_total += f.milk_total;
+//         acc.total_deductions += f.deductions?.total || 0;
+//         acc.total_received += f.total_received || 0;
+//         acc.net_payable += f.net_payable || 0;
+//         return acc;
+//       },
+//       { milk_total: 0, total_deductions: 0, total_received: 0, net_payable: 0 }
+//     );
+
+//     res.status(200).json({
+//       success: true,
+//       dairy_id: dairyid,
+//       startDate: stDate || null,
+//       endDate: endDate || null,
+//       farmers: result,
+//       grandTotals: grand
+//     });
+//   } catch (err) {
+//     console.error("Error in getDairyBillSummary:", err);
+//     res.status(500).json({ success: false, message: "Server error" });
+//   }
+// }
+
 async function getDairyBillSummary(req, res) {
   let { dairyid, datefrom, dateto } = req.query;
   if (!dairyid) {
@@ -1686,15 +1883,18 @@ async function getDairyBillSummary(req, res) {
       params.push(endDate);
     }
 
+    // ---- Collections grouped by date + farmer ----
     const collectionQuery = `
-      SELECT farmer_id, SUM(quantity*rate) as milk_total
+      SELECT farmer_id, DATE(created_at) as date, SUM(quantity*rate) as milk_total
       FROM collections
       WHERE ${conditions.join(" AND ")}
-      GROUP BY farmer_id
+      GROUP BY farmer_id, DATE(created_at)
+      ORDER BY DATE(created_at)
     `;
 
+    // ---- Payments grouped by date + farmer ----
     const paymentQuery = `
-      SELECT farmer_id,
+      SELECT farmer_id, DATE(date) as date,
              SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) as advance,
              SUM(CASE WHEN payment_type='cattle feed' THEN amount_taken ELSE 0 END) as cattle_feed,
              SUM(CASE WHEN payment_type='Other1' THEN amount_taken ELSE 0 END) as other1,
@@ -1703,19 +1903,22 @@ async function getDairyBillSummary(req, res) {
              SUM(received) as total_received
       FROM farmer_payments
       WHERE dairy_id = ?
-      GROUP BY farmer_id
+      GROUP BY farmer_id, DATE(date)
+      ORDER BY DATE(date)
     `;
     const payParams = [dairyid];
 
+    // ---- Bills grouped by date + farmer ----
     const billQuery = `
       SELECT farmer_id,
-            milk_total, advance_total, received_total, net_payable,
-            advance_remaining, cattlefeed_remaining, other1_remaining, other2_remaining,
-            cattlefeed_total, other1_total, other2_total,
-            period_start, period_end, status, is_finalized
+             DATE(period_start) as date,
+             milk_total, advance_total, received_total, net_payable,
+             advance_remaining, cattlefeed_remaining, other1_remaining, other2_remaining,
+             cattlefeed_total, other1_total, other2_total,
+             status, is_finalized
       FROM bills
       WHERE dairy_id = ?
-      ORDER BY farmer_id, period_start
+      ORDER BY DATE(period_start)
     `;
     const billParams = [dairyid];
 
@@ -1723,12 +1926,15 @@ async function getDairyBillSummary(req, res) {
     const [payments] = await db.execute(paymentQuery, payParams);
     const [bills] = await db.execute(billQuery, billParams);
 
+    // ---- Merge data by farmer_id + date ----
     const summary = {};
 
     // collections
     collections.forEach(c => {
-      summary[c.farmer_id] = {
+      const key = `${c.farmer_id}_${c.date}`;
+      summary[key] = {
         farmer_id: c.farmer_id,
+        date: c.date,
         milk_total: Number(c.milk_total) || 0,
         total_received: 0,
         deductions: { advance: 0, cattle_feed: 0, other1: 0, other2: 0, total: 0 },
@@ -1744,16 +1950,19 @@ async function getDairyBillSummary(req, res) {
           other2_remaining: 0,
           cattlefeed_total: 0,
           other1_total: 0,
-          other2_total: 0
+          other2_total: 0,
+          status: "pending"
         }
       };
     });
 
     // payments
     payments.forEach(p => {
-      if (!summary[p.farmer_id]) {
-        summary[p.farmer_id] = {
+      const key = `${p.farmer_id}_${p.date}`;
+      if (!summary[key]) {
+        summary[key] = {
           farmer_id: p.farmer_id,
+          date: p.date,
           milk_total: 0,
           total_received: 0,
           deductions: { advance: 0, cattle_feed: 0, other1: 0, other2: 0, total: 0 },
@@ -1769,29 +1978,32 @@ async function getDairyBillSummary(req, res) {
             other2_remaining: 0,
             cattlefeed_total: 0,
             other1_total: 0,
-            other2_total: 0
+            other2_total: 0,
+            status: "pending"
           }
         };
       }
-      summary[p.farmer_id].total_received = Number(p.total_received) || 0;
-      summary[p.farmer_id].deductions = {
+      summary[key].total_received = Number(p.total_received) || 0;
+      summary[key].deductions = {
         advance: Number(p.advance) || 0,
         cattle_feed: Number(p.cattle_feed) || 0,
         other1: Number(p.other1) || 0,
         other2: Number(p.other2) || 0,
         total: Number(p.total_deductions) || 0
       };
-      summary[p.farmer_id].net_payable =
-        summary[p.farmer_id].milk_total -
-        summary[p.farmer_id].deductions.total +
-        summary[p.farmer_id].total_received;
+      summary[key].net_payable =
+        summary[key].milk_total -
+        summary[key].deductions.total +
+        summary[key].total_received;
     });
 
     // bills
     bills.forEach(b => {
-      if (!summary[b.farmer_id]) {
-        summary[b.farmer_id] = {
+      const key = `${b.farmer_id}_${b.date}`;
+      if (!summary[key]) {
+        summary[key] = {
           farmer_id: b.farmer_id,
+          date: b.date,
           milk_total: 0,
           total_received: 0,
           deductions: { advance: 0, cattle_feed: 0, other1: 0, other2: 0, total: 0 },
@@ -1807,12 +2019,13 @@ async function getDairyBillSummary(req, res) {
             other2_remaining: 0,
             cattlefeed_total: 0,
             other1_total: 0,
-            other2_total: 0
+            other2_total: 0,
+            status: b.status
           }
         };
       }
 
-      summary[b.farmer_id].from_bills = {
+      summary[key].from_bills = {
         milk_total: Number(b.milk_total) || 0,
         advance_total: Number(b.advance_total) || 0,
         received_total: Number(b.received_total) || 0,
@@ -1823,39 +2036,39 @@ async function getDairyBillSummary(req, res) {
         other2_remaining: Number(b.other2_remaining) || 0,
         cattlefeed_total: Number(b.cattlefeed_total) || 0,
         other1_total: Number(b.other1_total) || 0,
-        other2_total: Number(b.other2_total) || 0
+        other2_total: Number(b.other2_total) || 0,
+        status: b.status
       };
-
-      summary[b.farmer_id].milk_total += Number(b.milk_total) || 0;
-      summary[b.farmer_id].total_received += Number(b.received_total) || 0;
-      summary[b.farmer_id].net_payable += Number(b.net_payable) || 0;
     });
 
-    const result = Object.values(summary);
-    const grand = result.reduce(
-      (acc, f) => {
-        acc.milk_total += f.milk_total;
-        acc.total_deductions += f.deductions?.total || 0;
-        acc.total_received += f.total_received || 0;
-        acc.net_payable += f.net_payable || 0;
-        return acc;
-      },
-      { milk_total: 0, total_deductions: 0, total_received: 0, net_payable: 0 }
-    );
+    // Convert object to date-grouped array
+    const groupedByDate = {};
+    Object.values(summary).forEach(item => {
+      if (!groupedByDate[item.date]) groupedByDate[item.date] = [];
+      groupedByDate[item.date].push(item);
+    });
+
+    // Format final result
+    const result = Object.keys(groupedByDate)
+      .sort()
+      .map(date => ({
+        date,
+        farmers: groupedByDate[date]
+      }));
 
     res.status(200).json({
       success: true,
       dairy_id: dairyid,
       startDate: stDate || null,
       endDate: endDate || null,
-      farmers: result,
-      grandTotals: grand
+      data: result
     });
   } catch (err) {
     console.error("Error in getDairyBillSummary:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 }
+
 
 
 

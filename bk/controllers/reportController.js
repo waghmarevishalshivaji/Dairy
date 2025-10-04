@@ -814,6 +814,534 @@ function isShiftInRange(startDate, startShift, endDate, endShift, rowDate, rowSh
 //   }
 // }
 
+// async function getDailyShiftReport(req, res) {
+//   try {
+//     const { dairyid, startDate, startShift, endDate, endShift, milkType } = req.query;
+//     if (!dairyid || !startDate || !startShift || !endDate || !endShift) {
+//       return res.status(400).json({
+//         message: "dairyid, startDate, startShift, endDate, endShift required",
+//       });
+//     }
+
+//     // Shift boundaries in IST
+//     const startDateTime =
+//       startShift === "Evening"
+//         ? `${startDate} 12:00:00`
+//         : `${startDate} 00:00:00`;
+
+//     const endDateTime =
+//       endShift === "Morning"
+//         ? `${endDate} 11:59:59`
+//         : `${endDate} 23:59:59`;
+
+//     // WHERE clause
+//     let where = `
+//       c.dairy_id=? 
+//       AND u.dairy_id=? 
+//       AND CONVERT_TZ(c.created_at,'+00:00','+05:30') BETWEEN ? AND ?
+//     `;
+//     const params = [dairyid, dairyid, startDateTime, endDateTime];
+
+//     if (milkType && milkType !== "All") {
+//       where += ` AND c.type=?`;
+//       params.push(milkType);
+//     }
+
+//     const [rows] = await db.query(
+//       `SELECT 
+//           DATE_FORMAT(CONVERT_TZ(c.created_at,'+00:00','+05:30'),'%Y-%m-%d') as date,
+//           c.shift, c.type,
+//           c.farmer_id, u.fullName as farmer_name,
+//           SUM(c.quantity) as liters,
+//           ROUND(AVG(c.fat),1) as fat,
+//           ROUND(AVG(c.snf),1) as snf,
+//           ROUND(AVG(c.clr),1) as clr,
+//           ROUND(AVG(c.rate),1) as rate,
+//           SUM(c.quantity * c.rate) as amount
+//        FROM collections c
+//        JOIN users u ON u.username = c.farmer_id
+//        WHERE ${where}
+//        GROUP BY 
+//           DATE_FORMAT(CONVERT_TZ(c.created_at,'+00:00','+05:30'),'%Y-%m-%d'),
+//           c.shift, c.type, c.farmer_id, u.fullName
+//        ORDER BY 
+//           DATE_FORMAT(CONVERT_TZ(c.created_at,'+00:00','+05:30'),'%Y-%m-%d'),
+//           FIELD(c.shift,'Morning','Evening'),
+//           c.farmer_id`,
+//       params
+//     );
+
+//     // ✅ additionally enforce shift filtering (edge case: same day with Morning+Evening)
+//     const filtered = rows.filter(r => {
+//       if (r.date === startDate && startShift === "Evening" && r.shift === "Morning") {
+//         return false; // drop morning of startDate
+//       }
+//       if (r.date === endDate && endShift === "Morning" && r.shift === "Evening") {
+//         return false; // drop evening of endDate
+//       }
+//       return true;
+//     });
+
+//     res.json({
+//       dairy_id: dairyid,
+//       period: { startDate, startShift, endDate, endShift },
+//       type: milkType || "All",
+//       report: filtered,
+//     });
+//   } catch (err) {
+//     console.error("Error generating daily shift report:", err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// }
+
+// async function getDailyShiftReport(req, res) {
+//   try {
+//     const { dairyid, startDate, startShift, endDate, endShift, milkType } = req.query;
+//     if (!dairyid || !startDate || !startShift || !endDate || !endShift) {
+//       return res.status(400).json({
+//         message: "dairyid, startDate, startShift, endDate, endShift required",
+//       });
+//     }
+
+//     // ---- Build datetime boundaries in IST ----
+//     const startDateTime =
+//       startShift === "Evening"
+//         ? `${startDate} 12:00:00`
+//         : `${startDate} 00:00:00`;
+
+//     const endDateTime =
+//       endShift === "Morning"
+//         ? `${endDate} 11:59:59`
+//         : `${endDate} 23:59:59`;
+
+//     // ---- Base WHERE ----
+//     let where = `
+//       c.dairy_id=? 
+//       AND u.dairy_id=? 
+//       AND CONVERT_TZ(c.created_at,'+00:00','+05:30') BETWEEN ? AND ?
+//     `;
+//     const params = [dairyid, dairyid, startDateTime, endDateTime];
+
+//     if (milkType && milkType !== "All") {
+//       where += ` AND c.type=?`;
+//       params.push(milkType);
+//     }
+
+//     // ---- Fetch data ----
+//     const [rows] = await db.query(
+//       `SELECT 
+//           DATE_FORMAT(CONVERT_TZ(c.created_at,'+00:00','+05:30'),'%Y-%m-%d') as date,
+//           c.shift, c.type,
+//           c.farmer_id, u.fullName as farmer_name,
+//           SUM(c.quantity) as liters,
+//           ROUND(AVG(c.fat),1) as fat,
+//           ROUND(AVG(c.snf),1) as snf,
+//           ROUND(AVG(c.clr),1) as clr,
+//           ROUND(AVG(c.rate),1) as rate,
+//           SUM(c.quantity * c.rate) as amount
+//        FROM collections c
+//        JOIN users u ON u.username = c.farmer_id
+//        WHERE ${where}
+//        GROUP BY 
+//           DATE_FORMAT(CONVERT_TZ(c.created_at,'+00:00','+05:30'),'%Y-%m-%d'),
+//           c.shift, c.type, c.farmer_id, u.fullName
+//        ORDER BY 
+//           DATE_FORMAT(CONVERT_TZ(c.created_at,'+00:00','+05:30'),'%Y-%m-%d'),
+//           FIELD(c.shift,'Morning','Evening'),
+//           c.farmer_id`,
+//       params
+//     );
+
+//     // ---- Smart filter logic for same-date case ----
+//     let filtered = rows;
+//     if (startDate === endDate) {
+//       // If both are the same date, limit to requested shift or both if start==end==Both
+//       filtered = rows.filter(r => {
+//         if (startShift === endShift) {
+//           return r.shift === startShift;
+//         } else {
+//           // e.g. startShift=Morning, endShift=Evening -> both allowed
+//           return r.shift === "Morning" || r.shift === "Evening";
+//         }
+//       });
+//     } else {
+//       // For multi-day range, keep your existing edge shift filtering
+//       filtered = rows.filter(r => {
+//         if (r.date === startDate && startShift === "Evening" && r.shift === "Morning") {
+//           return false;
+//         }
+//         if (r.date === endDate && endShift === "Morning" && r.shift === "Evening") {
+//           return false;
+//         }
+//         return true;
+//       });
+//     }
+
+//     // ---- Return final report ----
+//     res.json({
+//       dairy_id: dairyid,
+//       period: { startDate, startShift, endDate, endShift },
+//       type: milkType || "All",
+//       report: filtered,
+//     });
+//   } catch (err) {
+//     console.error("Error generating daily shift report:", err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// }
+
+// async function getDailyShiftReport(req, res) {
+//   try {
+//     const { dairyid, startDate, startShift, endDate, endShift, milkType } = req.query;
+
+//     if (!dairyid || !startDate || !startShift || !endDate || !endShift) {
+//       return res.status(400).json({
+//         message: "dairyid, startDate, startShift, endDate, endShift required",
+//       });
+//     }
+
+//     let startDateTime, endDateTime;
+
+//     // ✅ Same date case: use full day range explicitly
+//     if (startDate === endDate) {
+//       startDateTime = `${startDate} 00:00:00`;
+//       endDateTime = `${endDate} 23:59:59`;
+//     } else {
+//       // ✅ Multi-day logic with shift-based range
+//       startDateTime =
+//         startShift === "Evening"
+//           ? `${startDate} 12:00:00`
+//           : `${startDate} 00:00:00`;
+
+//       endDateTime =
+//         endShift === "Morning"
+//           ? `${endDate} 11:59:59`
+//           : `${endDate} 23:59:59`;
+//     }
+
+//     // ---- WHERE clause
+//     let where = `
+//       c.dairy_id=? 
+//       AND u.dairy_id=? 
+//       AND CONVERT_TZ(c.created_at,'+00:00','+05:30') BETWEEN ? AND ?
+//     `;
+//     const params = [dairyid, dairyid, startDateTime, endDateTime];
+
+//     if (milkType && milkType !== "All") {
+//       where += ` AND c.type=?`;
+//       params.push(milkType);
+//     }
+
+//     // ---- Query ----
+//     const [rows] = await db.query(
+//       `SELECT 
+//           DATE_FORMAT(CONVERT_TZ(c.created_at,'+00:00','+05:30'),'%Y-%m-%d') as date,
+//           c.shift, c.type,
+//           c.farmer_id, u.fullName as farmer_name,
+//           SUM(c.quantity) as liters,
+//           ROUND(AVG(c.fat),1) as fat,
+//           ROUND(AVG(c.snf),1) as snf,
+//           ROUND(AVG(c.clr),1) as clr,
+//           ROUND(AVG(c.rate),1) as rate,
+//           SUM(c.quantity * c.rate) as amount
+//        FROM collections c
+//        JOIN users u ON u.username = c.farmer_id
+//        WHERE ${where}
+//        GROUP BY 
+//           DATE_FORMAT(CONVERT_TZ(c.created_at,'+00:00','+05:30'),'%Y-%m-%d'),
+//           c.shift, c.type, c.farmer_id, u.fullName
+//        ORDER BY 
+//           DATE_FORMAT(CONVERT_TZ(c.created_at,'+00:00','+05:30'),'%Y-%m-%d'),
+//           FIELD(c.shift,'Morning','Evening'),
+//           c.farmer_id`,
+//       params
+//     );
+
+//     // ✅ Handle filtering properly for same date
+//     let filtered = rows;
+//     if (startDate === endDate) {
+//       filtered = rows.filter((r) => {
+//         if (startShift === endShift) {
+//           // Only one shift
+//           return r.shift === startShift;
+//         }
+//         // Morning–Evening full day range → include both
+//         return true;
+//       });
+//     } else {
+//       // For multiple days, keep edge filtering
+//       filtered = rows.filter((r) => {
+//         if (r.date === startDate && startShift === "Evening" && r.shift === "Morning") {
+//           return false;
+//         }
+//         if (r.date === endDate && endShift === "Morning" && r.shift === "Evening") {
+//           return false;
+//         }
+//         return true;
+//       });
+//     }
+
+//     // ✅ Add total averages at the end
+//     const avgFat =
+//       filtered.length > 0
+//         ? (
+//             filtered.reduce((sum, r) => sum + (Number(r.fat) || 0), 0) / filtered.length
+//           ).toFixed(2)
+//         : 0;
+
+//     res.json({
+//       success: true,
+//       dairy_id: dairyid,
+//       period: { startDate, startShift, endDate, endShift },
+//       type: milkType || "All",
+//       avg_fat: Number(avgFat),
+//       report: filtered,
+//     });
+//   } catch (err) {
+//     console.error("Error generating daily shift report:", err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// }
+
+// async function getDailyShiftReport(req, res) {
+//   try {
+//     const { dairyid, startDate, startShift, endDate, endShift, milkType } = req.query;
+
+//     if (!dairyid || !startDate || !startShift || !endDate || !endShift) {
+//       return res.status(400).json({
+//         message: "dairyid, startDate, startShift, endDate, endShift required",
+//       });
+//     }
+
+//     // ---- Build time window ----
+//     let startDateTime, endDateTime;
+
+//     // ✅ Handle same-day requests properly
+//     if (startDate === endDate) {
+//       startDateTime =
+//         startShift === "Evening"
+//           ? `${startDate} 12:00:00`
+//           : `${startDate} 00:00:00`;
+//       endDateTime =
+//         endShift === "Morning"
+//           ? `${endDate} 11:59:59`
+//           : `${endDate} 23:59:59`;
+//     } else {
+//       startDateTime =
+//         startShift === "Evening"
+//           ? `${startDate} 12:00:00`
+//           : `${startDate} 00:00:00`;
+//       endDateTime =
+//         endShift === "Morning"
+//           ? `${endDate} 11:59:59`
+//           : `${endDate} 23:59:59`;
+//     }
+
+//     // ---- WHERE clause (manual timezone conversion)
+//     let where = `
+//       c.dairy_id = ?
+//       AND u.dairy_id = ?
+//       AND (c.created_at + INTERVAL 5 HOUR + INTERVAL 30 MINUTE)
+//           BETWEEN ? AND ?
+//     `;
+//     const params = [dairyid, dairyid, startDateTime, endDateTime];
+
+//     if (milkType && milkType !== "All") {
+//       where += ` AND c.type = ?`;
+//       params.push(milkType);
+//     }
+
+//     // ---- SQL Query ----
+//     const [rows] = await db.query(
+//       `SELECT 
+//           DATE_FORMAT((c.created_at + INTERVAL 5 HOUR + INTERVAL 30 MINUTE),'%Y-%m-%d') AS date,
+//           c.shift, c.type,
+//           c.farmer_id, u.fullName AS farmer_name,
+//           SUM(c.quantity) AS liters,
+//           ROUND(AVG(c.fat),1) AS fat,
+//           ROUND(AVG(c.snf),1) AS snf,
+//           ROUND(AVG(c.clr),1) AS clr,
+//           ROUND(AVG(c.rate),1) AS rate,
+//           SUM(c.quantity * c.rate) AS amount
+//        FROM collections c
+//        JOIN users u ON u.username = c.farmer_id
+//        WHERE ${where}
+//        GROUP BY 
+//           DATE_FORMAT((c.created_at + INTERVAL 5 HOUR + INTERVAL 30 MINUTE),'%Y-%m-%d'),
+//           c.shift, c.type, c.farmer_id, u.fullName
+//        ORDER BY 
+//           DATE_FORMAT((c.created_at + INTERVAL 5 HOUR + INTERVAL 30 MINUTE),'%Y-%m-%d'),
+//           FIELD(c.shift,'Morning','Evening'),
+//           c.farmer_id`,
+//       params
+//     );
+
+//     // ---- Filter by shifts if same date ----
+//     let filtered = rows;
+//     if (startDate === endDate) {
+//       if (startShift === endShift) {
+//         filtered = rows.filter((r) => r.shift === startShift);
+//       }
+//     } else {
+//       filtered = rows.filter((r) => {
+//         if (r.date === startDate && startShift === "Evening" && r.shift === "Morning") return false;
+//         if (r.date === endDate && endShift === "Morning" && r.shift === "Evening") return false;
+//         return true;
+//       });
+//     }
+
+//     // ---- Average fat across filtered ----
+//     const avgFat =
+//       filtered.length > 0
+//         ? (
+//             filtered.reduce((sum, r) => sum + (Number(r.fat) || 0), 0) /
+//             filtered.length
+//           ).toFixed(2)
+//         : 0;
+
+//     res.json({
+//       success: true,
+//       dairy_id: dairyid,
+//       period: { startDate, startShift, endDate, endShift },
+//       type: milkType || "All",
+//       avg_fat: Number(avgFat),
+//       report: filtered,
+//     });
+//   } catch (err) {
+//     console.error("Error generating daily shift report:", err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// }
+
+
+// async function getDailyShiftReport(req, res) {
+//   try {
+//     const { dairyid, startDate, startShift, endDate, endShift, milkType } = req.query;
+
+//     if (!dairyid || !startDate || !startShift || !endDate || !endShift) {
+//       return res.status(400).json({
+//         message: "dairyid, startDate, startShift, endDate, endShift required",
+//       });
+//     }
+
+//     // ---- Build time window ----
+//     let startDateTime, endDateTime;
+
+//     // ✅ If same day → get entire day (00:00 → 23:59)
+//     if (startDate === endDate) {
+//       startDateTime = `${startDate} 00:00:00`;
+//       endDateTime = `${endDate} 23:59:59`;
+//     } else {
+//       // normal range logic
+//       startDateTime =
+//         startShift === "Evening"
+//           ? `${startDate} 12:00:00`
+//           : `${startDate} 00:00:00`;
+
+//       endDateTime =
+//         endShift === "Morning"
+//           ? `${endDate} 11:59:59`
+//           : `${endDate} 23:59:59`;
+//     }
+
+//     // ---- WHERE clause (manual timezone conversion to IST)
+//     let where = `
+//       c.dairy_id = ?
+//       AND u.dairy_id = ?
+//       AND (c.created_at + INTERVAL 5 HOUR + INTERVAL 30 MINUTE)
+//           BETWEEN ? AND ?
+//     `;
+//     const params = [dairyid, dairyid, startDateTime, endDateTime];
+
+//     if (milkType && milkType !== "All") {
+//       where += ` AND c.type = ?`;
+//       params.push(milkType);
+//     }
+
+//     // ---- Query ----
+//     const [rows] = await db.query(
+//       `SELECT 
+//           DATE_FORMAT((c.created_at + INTERVAL 5 HOUR + INTERVAL 30 MINUTE),'%Y-%m-%d') AS date,
+//           c.shift, c.type,
+//           c.farmer_id, u.fullName AS farmer_name,
+//           SUM(c.quantity) AS liters,
+//           ROUND(AVG(c.fat),1) AS fat,
+//           ROUND(AVG(c.snf),1) AS snf,
+//           ROUND(AVG(c.clr),1) AS clr,
+//           ROUND(AVG(c.rate),1) AS rate,
+//           SUM(c.quantity * c.rate) AS amount
+//        FROM collections c
+//        JOIN users u ON u.username = c.farmer_id
+//        WHERE ${where}
+//        GROUP BY 
+//           DATE_FORMAT((c.created_at + INTERVAL 5 HOUR + INTERVAL 30 MINUTE),'%Y-%m-%d'),
+//           c.shift, c.type, c.farmer_id, u.fullName
+//        ORDER BY 
+//           DATE_FORMAT((c.created_at + INTERVAL 5 HOUR + INTERVAL 30 MINUTE),'%Y-%m-%d'),
+//           FIELD(c.shift,'Morning','Evening'),
+//           c.farmer_id`,
+//       params
+//     );
+
+//     // ---- For same date → include all (no shift filter)
+//     let filtered = rows;
+//     if (startDate !== endDate) {
+//       filtered = rows.filter((r) => {
+//         if (r.date === startDate && startShift === "Evening" && r.shift === "Morning") return false;
+//         if (r.date === endDate && endShift === "Morning" && r.shift === "Evening") return false;
+//         return true;
+//       });
+//     }
+
+//     // ---- Calculate overall averages ----
+//     const avgFat =
+//       filtered.length > 0
+//         ? (
+//             filtered.reduce((sum, r) => sum + (Number(r.fat) || 0), 0) /
+//             filtered.length
+//           ).toFixed(2)
+//         : 0;
+
+//     const avgSnf =
+//       filtered.length > 0
+//         ? (
+//             filtered.reduce((sum, r) => sum + (Number(r.snf) || 0), 0) /
+//             filtered.length
+//           ).toFixed(2)
+//         : 0;
+
+//     const avgClr =
+//       filtered.length > 0
+//         ? (
+//             filtered.reduce((sum, r) => sum + (Number(r.clr) || 0), 0) /
+//             filtered.length
+//           ).toFixed(2)
+//         : 0;
+
+//     const totalLiters = filtered.reduce((sum, r) => sum + (Number(r.liters) || 0), 0);
+//     const totalAmount = filtered.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+
+//     // ---- Final response ----
+//     res.json({
+//       success: true,
+//       dairy_id: dairyid,
+//       period: { startDate, startShift, endDate, endShift },
+//       type: milkType || "All",
+//       summary: {
+//         avg_fat: Number(avgFat),
+//         avg_snf: Number(avgSnf),
+//         avg_clr: Number(avgClr),
+//         total_liters: Number(totalLiters),
+//         total_amount: Number(totalAmount),
+//       },
+//       report: filtered,
+//     });
+//   } catch (err) {
+//     console.error("Error generating daily shift report:", err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// }
+
 async function getDailyShiftReport(req, res) {
   try {
     const { dairyid, startDate, startShift, endDate, endShift, milkType } = req.query;
@@ -823,69 +1351,100 @@ async function getDailyShiftReport(req, res) {
       });
     }
 
-    // Shift boundaries in IST
-    const startDateTime =
-      startShift === "Evening"
-        ? `${startDate} 12:00:00`
-        : `${startDate} 00:00:00`;
+    // ---- Time boundaries (IST stored) ----
+    let startDateTime, endDateTime;
 
-    const endDateTime =
-      endShift === "Morning"
-        ? `${endDate} 11:59:59`
-        : `${endDate} 23:59:59`;
+    // ✅ If same day, take full day
+    if (startDate === endDate) {
+      startDateTime = `${startDate} 00:00:00`;
+      endDateTime = `${endDate} 23:59:59`;
+    } else {
+      startDateTime =
+        startShift === "Evening"
+          ? `${startDate} 12:00:00`
+          : `${startDate} 00:00:00`;
 
-    // WHERE clause
+      endDateTime =
+        endShift === "Morning"
+          ? `${endDate} 11:59:59`
+          : `${endDate} 23:59:59`;
+    }
+
+    // ---- WHERE clause ----
     let where = `
-      c.dairy_id=? 
-      AND u.dairy_id=? 
-      AND CONVERT_TZ(c.created_at,'+00:00','+05:30') BETWEEN ? AND ?
+      c.dairy_id = ?
+      AND u.dairy_id = ?
+      AND c.created_at BETWEEN ? AND ?
     `;
     const params = [dairyid, dairyid, startDateTime, endDateTime];
 
     if (milkType && milkType !== "All") {
-      where += ` AND c.type=?`;
+      where += ` AND c.type = ?`;
       params.push(milkType);
     }
 
+    // ---- Query ----
     const [rows] = await db.query(
       `SELECT 
-          DATE_FORMAT(CONVERT_TZ(c.created_at,'+00:00','+05:30'),'%Y-%m-%d') as date,
+          DATE(c.created_at) AS date,
           c.shift, c.type,
-          c.farmer_id, u.fullName as farmer_name,
-          SUM(c.quantity) as liters,
-          ROUND(AVG(c.fat),1) as fat,
-          ROUND(AVG(c.snf),1) as snf,
-          ROUND(AVG(c.clr),1) as clr,
-          ROUND(AVG(c.rate),1) as rate,
-          SUM(c.quantity * c.rate) as amount
+          c.farmer_id, u.fullName AS farmer_name,
+          SUM(c.quantity) AS liters,
+          ROUND(AVG(c.fat),1) AS fat,
+          ROUND(AVG(c.snf),1) AS snf,
+          ROUND(AVG(c.clr),1) AS clr,
+          ROUND(AVG(c.rate),1) AS rate,
+          SUM(c.quantity * c.rate) AS amount
        FROM collections c
        JOIN users u ON u.username = c.farmer_id
        WHERE ${where}
-       GROUP BY 
-          DATE_FORMAT(CONVERT_TZ(c.created_at,'+00:00','+05:30'),'%Y-%m-%d'),
-          c.shift, c.type, c.farmer_id, u.fullName
-       ORDER BY 
-          DATE_FORMAT(CONVERT_TZ(c.created_at,'+00:00','+05:30'),'%Y-%m-%d'),
-          FIELD(c.shift,'Morning','Evening'),
-          c.farmer_id`,
+       GROUP BY DATE(c.created_at), c.shift, c.type, c.farmer_id, u.fullName
+       ORDER BY DATE(c.created_at), FIELD(c.shift,'Morning','Evening'), c.farmer_id`,
       params
     );
 
-    // ✅ additionally enforce shift filtering (edge case: same day with Morning+Evening)
-    const filtered = rows.filter(r => {
-      if (r.date === startDate && startShift === "Evening" && r.shift === "Morning") {
-        return false; // drop morning of startDate
-      }
-      if (r.date === endDate && endShift === "Morning" && r.shift === "Evening") {
-        return false; // drop evening of endDate
-      }
-      return true;
-    });
+    // ---- If same date → no shift filtering ----
+    let filtered = rows;
+    if (startDate !== endDate) {
+      filtered = rows.filter((r) => {
+        if (r.date === startDate && startShift === "Evening" && r.shift === "Morning") return false;
+        if (r.date === endDate && endShift === "Morning" && r.shift === "Evening") return false;
+        return true;
+      });
+    }
 
+    // ---- Calculate totals and averages ----
+    const avgFat =
+      filtered.length > 0
+        ? (filtered.reduce((s, r) => s + (Number(r.fat) || 0), 0) / filtered.length).toFixed(2)
+        : 0;
+
+    const avgSnf =
+      filtered.length > 0
+        ? (filtered.reduce((s, r) => s + (Number(r.snf) || 0), 0) / filtered.length).toFixed(2)
+        : 0;
+
+    const avgClr =
+      filtered.length > 0
+        ? (filtered.reduce((s, r) => s + (Number(r.clr) || 0), 0) / filtered.length).toFixed(2)
+        : 0;
+
+    const totalLiters = filtered.reduce((s, r) => s + (Number(r.liters) || 0), 0);
+    const totalAmount = filtered.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+
+    // ---- Response ----
     res.json({
+      success: true,
       dairy_id: dairyid,
       period: { startDate, startShift, endDate, endShift },
       type: milkType || "All",
+      summary: {
+        avg_fat: Number(avgFat),
+        avg_snf: Number(avgSnf),
+        avg_clr: Number(avgClr),
+        total_liters: Number(totalLiters),
+        total_amount: Number(totalAmount),
+      },
       report: filtered,
     });
   } catch (err) {
@@ -893,8 +1452,6 @@ async function getDailyShiftReport(req, res) {
     res.status(500).json({ message: "Server error" });
   }
 }
-
-
 
 
 

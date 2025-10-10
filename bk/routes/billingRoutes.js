@@ -14,7 +14,7 @@ const billingController = require('../controllers/billingController');
 router.post("/generate", billingController.generateBill);          // Generate bill
 router.post("/generatebills", billingController.generateBills);          // Generate bill
 router.put("/:billId", billingController.updateBill);              // Update bill
-router.post("/finalize/:billId", billingController.finalizeBill);  // Finalize bill
+router.post("/finalize", billingController.finalizeBill);  // Finalize bill
 router.get("/balance/:farmerId", billingController.getFarmerBalance); // Farmer balance
 
 module.exports = router;

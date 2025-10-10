@@ -574,6 +574,84 @@ async function generateBill(req, res) {
 //   }
 // }
 
+// async function generateBills(req, res) {
+//   try {
+//     const { records, dairy_id } = req.body;
+
+//     if (!dairy_id || !records || !Array.isArray(records) || records.length === 0) {
+//       return res.status(400).json({ message: "dairy_id and records array required" });
+//     }
+
+//     // Build values array for bulk insert including new fields
+//     const values = records.map(r => [
+//       r.farmer_id,
+//       dairy_id,
+//       r.period_start,
+//       r.period_end,
+//       r.milk_total || 0,
+//       r.advance_total || 0,
+//       r.received_total || 0,
+//       r.net_payable || 0,
+//       r.advance_remaining || 0,
+//       r.cattlefeed_remaining || 0,
+//       r.other1_remaining || 0,
+//       r.other2_remaining || 0
+//     ]);
+
+//     const placeholders = values
+//       .map(() => `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)`)
+//       .join(",");
+
+//     const sql = `
+//       INSERT INTO bills (
+//         farmer_id, dairy_id, period_start, period_end,
+//         milk_total, advance_total, received_total, net_payable,
+//         advance_remaining, cattlefeed_remaining, other1_remaining, other2_remaining,
+//         status, is_finalized
+//       )
+//       VALUES ${placeholders}
+//       ON DUPLICATE KEY UPDATE 
+//         milk_total = VALUES(milk_total),
+//         advance_total = VALUES(advance_total),
+//         received_total = VALUES(received_total),
+//         net_payable = VALUES(net_payable),
+//         advance_remaining = VALUES(advance_remaining),
+//         cattlefeed_remaining = VALUES(cattlefeed_remaining),
+//         other1_remaining = VALUES(other1_remaining),
+//         other2_remaining = VALUES(other2_remaining),
+//         status = 'pending',
+//         is_finalized = 0
+//     `;
+
+//     const flatValues = values.flat();
+//     const [result] = await db.query(sql, flatValues);
+
+//     res.json({
+//       success: true,
+//       message: "Bills inserted/updated successfully",
+//       affectedRows: result.affectedRows,
+//       records: records.map(r => ({
+//         farmer_id: r.farmer_id,
+//         dairy_id,
+//         period_start: r.period_start,
+//         period_end: r.period_end,
+//         milk_total: r.milk_total || 0,
+//         advance_total: r.advance_total || 0,
+//         received_total: r.received_total || 0,
+//         net_payable: r.net_payable || 0,
+//         advance_remaining: r.advance_remaining || 0,
+//         cattlefeed_remaining: r.cattlefeed_remaining || 0,
+//         other1_remaining: r.other1_remaining || 0,
+//         other2_remaining: r.other2_remaining || 0,
+//         status: "pending"
+//       }))
+//     });
+//   } catch (err) {
+//     console.error("Error in generateBills:", err);
+//     res.status(500).json({ error: err.message });
+//   }
+// }
+
 async function generateBills(req, res) {
   try {
     const { records, dairy_id } = req.body;
@@ -582,7 +660,6 @@ async function generateBills(req, res) {
       return res.status(400).json({ message: "dairy_id and records array required" });
     }
 
-    // Build values array for bulk insert including new fields
     const values = records.map(r => [
       r.farmer_id,
       dairy_id,
@@ -595,18 +672,22 @@ async function generateBills(req, res) {
       r.advance_remaining || 0,
       r.cattlefeed_remaining || 0,
       r.other1_remaining || 0,
-      r.other2_remaining || 0
+      r.other2_remaining || 0,
+      r.cattlefeed_total || 0,
+      r.other1_total || 0,
+      r.other2_total || 0
     ]);
 
-    const placeholders = values
-      .map(() => `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)`)
-      .join(",");
+    const placeholders = values.map(() =>
+      `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)`
+    ).join(",");
 
     const sql = `
       INSERT INTO bills (
         farmer_id, dairy_id, period_start, period_end,
         milk_total, advance_total, received_total, net_payable,
         advance_remaining, cattlefeed_remaining, other1_remaining, other2_remaining,
+        cattlefeed_total, other1_total, other2_total,
         status, is_finalized
       )
       VALUES ${placeholders}
@@ -619,6 +700,9 @@ async function generateBills(req, res) {
         cattlefeed_remaining = VALUES(cattlefeed_remaining),
         other1_remaining = VALUES(other1_remaining),
         other2_remaining = VALUES(other2_remaining),
+        cattlefeed_total = VALUES(cattlefeed_total),
+        other1_total = VALUES(other1_total),
+        other2_total = VALUES(other2_total),
         status = 'pending',
         is_finalized = 0
     `;
@@ -630,27 +714,14 @@ async function generateBills(req, res) {
       success: true,
       message: "Bills inserted/updated successfully",
       affectedRows: result.affectedRows,
-      records: records.map(r => ({
-        farmer_id: r.farmer_id,
-        dairy_id,
-        period_start: r.period_start,
-        period_end: r.period_end,
-        milk_total: r.milk_total || 0,
-        advance_total: r.advance_total || 0,
-        received_total: r.received_total || 0,
-        net_payable: r.net_payable || 0,
-        advance_remaining: r.advance_remaining || 0,
-        cattlefeed_remaining: r.cattlefeed_remaining || 0,
-        other1_remaining: r.other1_remaining || 0,
-        other2_remaining: r.other2_remaining || 0,
-        status: "pending"
-      }))
+      records
     });
   } catch (err) {
     console.error("Error in generateBills:", err);
     res.status(500).json({ error: err.message });
   }
 }
+
 
 
 
@@ -678,15 +749,50 @@ async function updateBill(req, res) {
 
 // ➤ Finalize Bill
 // exports.finalizeBill = async (req, res) => {
+// async function finalizeBill(req, res) {
+//   try {
+//     const { billId } = req.params;
+//     await db.query(`UPDATE bills SET is_finalized=1, status='paid' WHERE id=?`, [billId]);
+//     res.json({ success: true, message: "Bill finalized successfully" });
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// };
+
 async function finalizeBill(req, res) {
   try {
-    const { billId } = req.params;
-    await db.query(`UPDATE bills SET is_finalized=1, status='paid' WHERE id=?`, [billId]);
-    res.json({ success: true, message: "Bill finalized successfully" });
+    const { billIds } = req.body;
+
+    if (!billIds || !Array.isArray(billIds) || billIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "billIds (array) is required in body"
+      });
+    }
+
+    // Convert billIds to SQL placeholders like (?, ?, ?)
+    const placeholders = billIds.map(() => '?').join(',');
+
+    const sql = `
+      UPDATE bills 
+      SET is_finalized = 1, status = 'paid'
+      WHERE id IN (${placeholders})
+    `;
+
+    const [result] = await db.query(sql, billIds);
+
+    res.json({
+      success: true,
+      message: "Bills finalized successfully",
+      updatedCount: result.affectedRows,
+      finalizedIds: billIds
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Error finalizing bills:", err);
+    res.status(500).json({ success: false, error: err.message });
   }
-};
+}
+
 
 async function getFarmerBalance(req, res) {
   try {

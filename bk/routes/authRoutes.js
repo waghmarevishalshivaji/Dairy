@@ -33,4 +33,6 @@ router.post('/updateuser', authController.updateUser);
 
 router.post("/logout", authController.logout);
 
+router.post("/user/:user_id/status", authController.toggleUserStatus);
+
 module.exports = router;

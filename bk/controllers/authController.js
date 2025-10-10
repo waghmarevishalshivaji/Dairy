@@ -631,6 +631,38 @@ async function logout(req, res) {
 }
 
 
+// ✅ Toggle user active/deactive
+async function toggleUserStatus(req, res) {
+  try {
+    const { user_id } = req.params;
+    const { is_active } = req.body; // expects 1 or 0
+
+    if (typeof is_active === "undefined") {
+      return res.status(400).json({ success: false, message: "is_active (0 or 1) is required" });
+    }
+
+    const [result] = await db.query(
+      `UPDATE users SET is_active = ? WHERE id = ?`,
+      [is_active, user_id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: is_active ? "User activated successfully" : "User deactivated successfully",
+      user_id,
+      is_active
+    });
+  } catch (err) {
+    console.error("Error toggling user status:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+
 
 
 module.exports = {
@@ -645,5 +677,6 @@ module.exports = {
     updateUser,
     getNextFarmerId,
     resetPasswordUsername,
-    logout
+    logout,
+    toggleUserStatus
 };

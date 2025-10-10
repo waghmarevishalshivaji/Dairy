@@ -327,6 +327,94 @@ const bcrypt = require('bcryptjs');
 // }
 
 
+// async function generateBill(req, res) {
+//   try {
+//     const {
+//       farmer_id,
+//       dairy_id,
+//       period_start,
+//       period_end,
+//       milk_total,
+//       advance_total,
+//       received_total,
+//       net_payable,
+//       advance_remaining,
+//       cattlefeed_remaining,
+//       other1_remaining,
+//       other2_remaining,
+//       cattlefeed_total,
+//       other1_total,
+//       other2_total
+//     } = req.body;
+
+//     const [result] = await db.query(
+//       `INSERT INTO bills (
+//         farmer_id, dairy_id, period_start, period_end,
+//         milk_total, advance_total, received_total, net_payable,
+//         advance_remaining, cattlefeed_remaining, other1_remaining, other2_remaining,
+//         cattlefeed_total, other1_total, other2_total,
+//         status, is_finalized
+//       )
+//       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)
+//       ON DUPLICATE KEY UPDATE
+//         milk_total = VALUES(milk_total),
+//         advance_total = VALUES(advance_total),
+//         received_total = VALUES(received_total),
+//         net_payable = VALUES(net_payable),
+//         advance_remaining = VALUES(advance_remaining),
+//         cattlefeed_remaining = VALUES(cattlefeed_remaining),
+//         other1_remaining = VALUES(other1_remaining),
+//         other2_remaining = VALUES(other2_remaining),
+//         cattlefeed_total = VALUES(cattlefeed_total),
+//         other1_total = VALUES(other1_total),
+//         other2_total = VALUES(other2_total),
+//         status = 'pending',
+//         is_finalized = 0`,
+//       [
+//         farmer_id,
+//         dairy_id,
+//         period_start,
+//         period_end,
+//         milk_total || 0,
+//         advance_total || 0,
+//         received_total || 0,
+//         net_payable || 0,
+//         advance_remaining || 0,
+//         cattlefeed_remaining || 0,
+//         other1_remaining || 0,
+//         other2_remaining || 0,
+//         cattlefeed_total || 0,
+//         other1_total || 0,
+//         other2_total || 0
+//       ]
+//     );
+
+//     res.json({
+//       success: true,
+//       action: result.affectedRows > 1 ? "updated" : "inserted",
+//       farmer_id,
+//       dairy_id,
+//       period_start,
+//       period_end,
+//       milk_total,
+//       advance_total,
+//       received_total,
+//       net_payable,
+//       advance_remaining,
+//       cattlefeed_remaining,
+//       other1_remaining,
+//       other2_remaining,
+//       cattlefeed_total,
+//       other1_total,
+//       other2_total,
+//       status: "pending"
+//     });
+//   } catch (err) {
+//     console.error("Error generating bill:", err);
+//     res.status(500).json({ error: err.message });
+//   }
+// }
+
 async function generateBill(req, res) {
   try {
     const {
@@ -347,6 +435,7 @@ async function generateBill(req, res) {
       other2_total
     } = req.body;
 
+    // Insert or update bill
     const [result] = await db.query(
       `INSERT INTO bills (
         farmer_id, dairy_id, period_start, period_end,
@@ -389,9 +478,19 @@ async function generateBill(req, res) {
       ]
     );
 
+    // 🔹 Fetch the inserted or updated bill ID
+    const [billRow] = await db.query(
+      `SELECT id FROM bills WHERE farmer_id=? AND dairy_id=? AND period_start=? AND period_end=? LIMIT 1`,
+      [farmer_id, dairy_id, period_start, period_end]
+    );
+
+    const bill_id = billRow[0]?.id || null;
+
+    // Response with bill_id
     res.json({
       success: true,
       action: result.affectedRows > 1 ? "updated" : "inserted",
+      bill_id,
       farmer_id,
       dairy_id,
       period_start,
@@ -414,6 +513,7 @@ async function generateBill(req, res) {
     res.status(500).json({ error: err.message });
   }
 }
+
 
 
 // async function generateBill(req, res) {
@@ -652,6 +752,78 @@ async function generateBill(req, res) {
 //   }
 // }
 
+
+// last one
+// async function generateBills(req, res) {
+//   try {
+//     const { records, dairy_id } = req.body;
+
+//     if (!dairy_id || !records || !Array.isArray(records) || records.length === 0) {
+//       return res.status(400).json({ message: "dairy_id and records array required" });
+//     }
+
+//     const values = records.map(r => [
+//       r.farmer_id,
+//       dairy_id,
+//       r.period_start,
+//       r.period_end,
+//       r.milk_total || 0,
+//       r.advance_total || 0,
+//       r.received_total || 0,
+//       r.net_payable || 0,
+//       r.advance_remaining || 0,
+//       r.cattlefeed_remaining || 0,
+//       r.other1_remaining || 0,
+//       r.other2_remaining || 0,
+//       r.cattlefeed_total || 0,
+//       r.other1_total || 0,
+//       r.other2_total || 0
+//     ]);
+
+//     const placeholders = values.map(() =>
+//       `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)`
+//     ).join(",");
+
+//     const sql = `
+//       INSERT INTO bills (
+//         farmer_id, dairy_id, period_start, period_end,
+//         milk_total, advance_total, received_total, net_payable,
+//         advance_remaining, cattlefeed_remaining, other1_remaining, other2_remaining,
+//         cattlefeed_total, other1_total, other2_total,
+//         status, is_finalized
+//       )
+//       VALUES ${placeholders}
+//       ON DUPLICATE KEY UPDATE 
+//         milk_total = VALUES(milk_total),
+//         advance_total = VALUES(advance_total),
+//         received_total = VALUES(received_total),
+//         net_payable = VALUES(net_payable),
+//         advance_remaining = VALUES(advance_remaining),
+//         cattlefeed_remaining = VALUES(cattlefeed_remaining),
+//         other1_remaining = VALUES(other1_remaining),
+//         other2_remaining = VALUES(other2_remaining),
+//         cattlefeed_total = VALUES(cattlefeed_total),
+//         other1_total = VALUES(other1_total),
+//         other2_total = VALUES(other2_total),
+//         status = 'pending',
+//         is_finalized = 0
+//     `;
+
+//     const flatValues = values.flat();
+//     const [result] = await db.query(sql, flatValues);
+
+//     res.json({
+//       success: true,
+//       message: "Bills inserted/updated successfully",
+//       affectedRows: result.affectedRows,
+//       records
+//     });
+//   } catch (err) {
+//     console.error("Error in generateBills:", err);
+//     res.status(500).json({ error: err.message });
+//   }
+// }
+
 async function generateBills(req, res) {
   try {
     const { records, dairy_id } = req.body;
@@ -660,6 +832,7 @@ async function generateBills(req, res) {
       return res.status(400).json({ message: "dairy_id and records array required" });
     }
 
+    // Build value arrays for bulk insert
     const values = records.map(r => [
       r.farmer_id,
       dairy_id,
@@ -678,10 +851,12 @@ async function generateBills(req, res) {
       r.other2_total || 0
     ]);
 
+    // Build placeholders for each record
     const placeholders = values.map(() =>
       `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)`
     ).join(",");
 
+    // Main upsert query
     const sql = `
       INSERT INTO bills (
         farmer_id, dairy_id, period_start, period_end,
@@ -708,13 +883,30 @@ async function generateBills(req, res) {
     `;
 
     const flatValues = values.flat();
+
+    // Execute insert/update
     const [result] = await db.query(sql, flatValues);
+
+    // --- Fetch the actual IDs (both inserted and updated) ---
+    const [billRows] = await db.query(
+      `
+      SELECT id, farmer_id, period_start, period_end
+      FROM bills
+      WHERE dairy_id = ?
+        AND (${records.map(() => "(farmer_id = ? AND period_start = ? AND period_end = ?)").join(" OR ")})
+      `,
+      [
+        dairy_id,
+        ...records.flatMap(r => [r.farmer_id, r.period_start, r.period_end])
+      ]
+    );
 
     res.json({
       success: true,
       message: "Bills inserted/updated successfully",
       affectedRows: result.affectedRows,
-      records
+      billIds: billRows.map(r => r.id),
+      records: billRows
     });
   } catch (err) {
     console.error("Error in generateBills:", err);

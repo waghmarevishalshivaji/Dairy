@@ -310,23 +310,47 @@ async function resetPassword(req, res) {
     // After resetting the password, get user details
     const [userDetails] = await db.execute('SELECT * FROM users WHERE mobile_number = ?', [mobile_number]);
 
-    // Generate JWT token including user details
-    const token = jwt.sign(
-      {
-        userId: userDetails[0].id,
-        username: userDetails[0].username,
-        mobile_number: userDetails[0].mobile_number,
-        role: userDetails[0].role, // Include role in the token
-        organization: userDetails[0].organization // Optional, if needed
-      },
-      process.env.JWT_SECRET, // Replace with your secret
-      { expiresIn: '1h' } // Token expiration time
-    );
+
+    let dairydata = {}
+
+      if(userDetails[0].role == 'farmer'){
+        const dairyquery = `
+            SELECT 
+              *
+            FROM dairy 
+            WHERE 
+              id = ?`;
+              
+          const dairyparams = [userDetails[0].dairy_id];
+          const [dairyrows] = await db.execute(dairyquery, dairyparams);
+          dairydata.id = dairyrows[0].id
+          dairydata.name = dairyrows[0].name
+          dairydata.branchname = dairyrows[0].branchname
+          dairydata.ownername = dairyrows[0].ownername
+          dairydata.days = dairyrows[0].days
+          dairydata.villagename = dairyrows[0].villagename
+          dairydata.address = dairyrows[0].address
+       }
+      // Generate JWT token including user details
+      const token = jwt.sign(
+        {
+          userId: userDetails[0].id,
+          username: userDetails[0].username,
+          mobile_number: userDetails[0].mobile_number,
+          role: userDetails[0].role, // Include role in the token
+          organization: userDetails[0].organization // Optional, if needed
+        },
+        process.env.JWT_SECRET, // Replace with your secret
+        { expiresIn: '1h' } // Token expiration time
+      );
+
+   
 
     // Send back the user details along with the generated token
     return res.status(200).json({
       message: 'Password reset successfully',
       success : true,
+      dairydata : dairydata,
       user: {
         id: userDetails[0].id,
         username: userDetails[0].username,

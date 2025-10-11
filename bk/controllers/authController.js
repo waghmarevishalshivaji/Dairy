@@ -105,7 +105,7 @@ async function login(req, res) {
 
 
     let dairydata = {}
-    if(rows[0].role == 'Dairymgr' || rows[0].role == 'farmer'){
+    if(rows[0].role == 'Dairymgr'){
       // dairyquery = 'SELECT * FROM userDairy WHERE user_id = ?';  // Corrected query
       // dairyparams = [rows[0].user_id];
       // const [dairyrows] = await db.execute(dairyquery, dairyparams);
@@ -123,6 +123,23 @@ async function login(req, res) {
           udairy.user_id = ?`;
           
       const dairyparams = [rows[0].id];
+      const [dairyrows] = await db.execute(dairyquery, dairyparams);
+      dairydata.id = dairyrows[0].id
+      dairydata.name = dairyrows[0].name
+      dairydata.branchname = dairyrows[0].branchname
+      dairydata.ownername = dairyrows[0].ownername
+      dairydata.days = dairyrows[0].days
+      dairydata.villagename = dairyrows[0].villagename
+      dairydata.address = dairyrows[0].address
+    }else{
+       const dairyquery = `
+        SELECT 
+          *
+        FROM dairy 
+        WHERE 
+          id = ?`;
+          
+      const dairyparams = [rows[0].dairy_id];
       const [dairyrows] = await db.execute(dairyquery, dairyparams);
       dairydata.id = dairyrows[0].id
       dairydata.name = dairyrows[0].name

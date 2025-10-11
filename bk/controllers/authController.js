@@ -280,7 +280,7 @@ async function verifyOTP(req, res) {
 }
 
 async function resetPassword(req, res) {
-  const { mobile_number, new_password } = req.body;
+  const { mobile_number, new_password, role } = req.body;
 
   if (!mobile_number || !new_password) {
     return res.status(400).json({ message: 'Mobile number and new password are required',success : false });
@@ -299,8 +299,8 @@ async function resetPassword(req, res) {
 
     // Update the user's password in the database
     const [updateResult] = await db.execute(
-      'UPDATE users SET password = ? WHERE mobile_number = ?',
-      [hashedPassword, mobile_number]
+      'UPDATE users SET password = ? WHERE mobile_number = ? AND role = ?',
+      [hashedPassword, mobile_number, role]
     );
 
     if (updateResult.affectedRows === 0) {
@@ -308,9 +308,9 @@ async function resetPassword(req, res) {
     }
 
     // After resetting the password, get user details
-    const [userDetails] = await db.execute('SELECT * FROM users WHERE mobile_number = ?', [mobile_number]);
+    const [userDetails] = await db.execute('SELECT * FROM users WHERE mobile_number = ? AND role = ?', [mobile_number, role]);
 
-
+    console.log(userDetails[0])
     let dairydata = {}
 
       if(userDetails[0].role == 'farmer'){

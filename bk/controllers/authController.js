@@ -105,7 +105,7 @@ async function login(req, res) {
 
 
     let dairydata = {}
-    if(rows[0].role == 'Dairymgr'){
+    if(rows[0].role == 'Dairymgr' || rows[0].role == 'farmer'){
       // dairyquery = 'SELECT * FROM userDairy WHERE user_id = ?';  // Corrected query
       // dairyparams = [rows[0].user_id];
       // const [dairyrows] = await db.execute(dairyquery, dairyparams);

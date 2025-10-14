@@ -1754,6 +1754,79 @@ async function deleteCollection(req, res) {
     }
 }
 
+async function updateRatesByEffectiveDate(req, res) {
+  try {
+    const { dairy_id, effective_date } = req.body;
+
+    if (!dairy_id || !effective_date) {
+      return res.status(400).json({
+        success: false,
+        message: "dairy_id and effective_date are required",
+      });
+    }
+
+    // 🔹 Step 1: Get all collections before the effective_date that are not part of finalized bills
+    const [collections] = await db.query(
+      `
+      SELECT c.id, c.farmer_id, c.fat, c.snf, c.created_at
+      FROM collections c
+      LEFT JOIN bills b 
+        ON c.farmer_id = b.farmer_id
+        AND c.dairy_id = b.dairy_id
+        AND DATE(c.created_at) BETWEEN DATE(b.period_start) AND DATE(b.period_end)
+      WHERE c.dairy_id = ? 
+        AND DATE(c.created_at) <= ?
+        AND (b.is_finalized IS NULL OR b.is_finalized = 0)
+      `,
+      [dairy_id, effective_date]
+    );
+
+    if (collections.length === 0) {
+      return res.json({
+        success: true,
+        message: "No eligible collections found to update rates",
+        updated: 0,
+      });
+    }
+
+    // 🔹 Step 2: Get all rate chart entries effective on or before the date
+    const [rateChart] = await db.query(
+      `
+      SELECT fat, snf, rate 
+      FROM rate 
+      WHERE dairy_id = ? 
+        AND effective_date <= ?
+      `,
+      [dairy_id, effective_date]
+    );
+
+    // Build lookup for fast access
+    const rateLookup = {};
+    rateChart.forEach(r => {
+      rateLookup[`${r.fat}_${r.snf}`] = r.rate;
+    });
+
+    // 🔹 Step 3: Update collection rates
+    let updateCount = 0;
+    for (const col of collections) {
+      const rate = rateLookup[`${col.fat}_${col.snf}`] || 0;
+      await db.query(`UPDATE collections SET rate = ? WHERE id = ?`, [rate, col.id]);
+      updateCount++;
+    }
+
+    res.json({
+      success: true,
+      message: `Rates updated successfully for ${updateCount} collections`,
+      updated: updateCount,
+      effective_date,
+    });
+  } catch (err) {
+    console.error("Error updating rates:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+
 module.exports = {
     getTodaysCollectionByFarmer,
     createCollection,
@@ -1763,5 +1836,6 @@ module.exports = {
     deleteCollection,
     getCollectionBytab,
     getTodaysCollection,
-    getTodaysCollectionfarmer
+    getTodaysCollectionfarmer,
+    updateRatesByEffectiveDate
 };

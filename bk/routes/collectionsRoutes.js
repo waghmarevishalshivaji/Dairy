@@ -12,6 +12,7 @@ router.get('/getTodayscollectionbyfarmer', controller.getTodaysCollectionByFarme
 router.get('/:id', controller.getCollectionById);
 router.put('/:id', controller.updateCollection);
 router.delete('/:id', controller.deleteCollection);
+router.post("/update-rates-effective", updateRatesByEffectiveDate);
 
 
 module.exports = router;

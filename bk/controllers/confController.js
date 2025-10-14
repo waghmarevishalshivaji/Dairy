@@ -78,55 +78,192 @@ const upload = multer({
 //     });
 // };
 
+// const uploadRates = async (req, res) => {
+//   const filePath = req.file.path;
+//   const { created_by, organisation_id, name, type } = req.body;
+
+//   const results = [];
+
+// fs.createReadStream(filePath)
+//   .pipe(csvParser())
+//   .on('data', (row) => {
+//     const fat = parseFloat(row['FAT/SNF']?.trim());
+//     if (isNaN(fat)) return;
+
+//     // Loop through each SNF column
+//     Object.keys(row).forEach((key) => {
+//       if (key === 'FAT/SNF') return;
+
+//       const snf = parseFloat(key.trim());
+//       const price = parseFloat(row[key].trim());
+
+//       if (!isNaN(snf) && !isNaN(price)) {
+//         results.push([fat, snf, price, type, name, created_by, organisation_id]);
+//       } else {
+//         console.warn(`Skipping cell: FAT=${fat}, SNF=${key}, Value=${row[key]}`);
+//       }
+//     });
+//   })
+//   .on('end', async () => {
+//     if (results.length === 0) {
+//       return res.status(400).json({ message: 'No valid rate records found in CSV' });
+//     }
+
+//     try {
+
+//       await db.query(
+//           'DELETE FROM rate WHERE organisation_id = ? AND type = ? AND name = ?',
+//           [organisation_id, type, name]
+//       );
+
+//       await db.query(
+//         'INSERT INTO rate (fat, snf, price, type, name, created_by, organisation_id) VALUES ?',
+//         [results]
+//       );
+//       res.json({ message: 'Rates uploaded successfully.', inserted: results.length });
+//     } catch (err) {
+//       console.error(err);
+//       res.status(500).json({ message: 'Database insert error.' });
+//     }
+//   });
+
+// };
+
 const uploadRates = async (req, res) => {
   const filePath = req.file.path;
-  const { created_by, organisation_id, name, type } = req.body;
+  const { created_by, organisation_id, name, type, effective_date } = req.body;
 
   const results = [];
 
-fs.createReadStream(filePath)
-  .pipe(csvParser())
-  .on('data', (row) => {
-    const fat = parseFloat(row['FAT/SNF']?.trim());
-    if (isNaN(fat)) return;
+  fs.createReadStream(filePath)
+    .pipe(csvParser())
+    .on("data", (row) => {
+      const fat = parseFloat(row["FAT/SNF"]?.trim());
+      if (isNaN(fat)) return;
 
-    // Loop through each SNF column
-    Object.keys(row).forEach((key) => {
-      if (key === 'FAT/SNF') return;
+      Object.keys(row).forEach((key) => {
+        if (key === "FAT/SNF") return;
 
-      const snf = parseFloat(key.trim());
-      const price = parseFloat(row[key].trim());
+        const snf = parseFloat(key.trim());
+        const price = parseFloat(row[key].trim());
 
-      if (!isNaN(snf) && !isNaN(price)) {
-        results.push([fat, snf, price, type, name, created_by, organisation_id]);
-      } else {
-        console.warn(`Skipping cell: FAT=${fat}, SNF=${key}, Value=${row[key]}`);
+        if (!isNaN(snf) && !isNaN(price)) {
+          results.push([
+            fat,
+            snf,
+            price,
+            type,
+            name,
+            created_by,
+            organisation_id,
+            effective_date || null,
+          ]);
+        }
+      });
+    })
+    .on("end", async () => {
+      if (results.length === 0) {
+        return res
+          .status(400)
+          .json({ message: "No valid rate records found in CSV" });
+      }
+
+      try {
+        // Remove old rates of same chart
+        await db.query(
+          "DELETE FROM rate WHERE organisation_id=? AND type=? AND name=?",
+          [organisation_id, type, name]
+        );
+
+        // Insert new rates
+        await db.query(
+          `INSERT INTO rate (fat, snf, price, type, name, created_by, organisation_id, effective_date)
+           VALUES ?`,
+          [results]
+        );
+
+        let updatedCollections = 0;
+
+        // Update collections only if effective date provided
+        if (effective_date) {
+          // Get all rates for this dairy/type
+          const [rateRows] = await db.query(
+            `SELECT fat, snf, price FROM rate
+             WHERE organisation_id=? AND type=? AND (effective_date=? OR effective_date IS NULL)`,
+            [organisation_id, type, effective_date]
+          );
+
+          for (const rateRow of rateRows) {
+            const { fat, snf, price } = rateRow;
+
+            // Update collections (not finalized bills)
+            const [collections] = await db.query(
+              `
+              SELECT c.id
+              FROM collections c
+              LEFT JOIN bills b 
+                ON c.farmer_id = b.farmer_id
+                AND c.dairy_id = b.dairy_id
+                AND DATE(c.created_at) BETWEEN DATE(b.period_start) AND DATE(b.period_end)
+              WHERE c.dairy_id=? 
+                AND c.type=? 
+                AND ROUND(c.fat,1)=? 
+                AND ROUND(c.snf,1)=? 
+                AND DATE(c.created_at) <= ?
+                AND (b.is_finalized IS NULL OR b.is_finalized=0)
+              `,
+              [organisation_id, type, fat, snf, effective_date]
+            );
+
+            for (const col of collections) {
+              await db.query(`UPDATE collections SET rate=? WHERE id=?`, [
+                price,
+                col.id,
+              ]);
+              updatedCollections++;
+            }
+          }
+
+          // 🟡 Set rate=0 for collections with no matching rate
+          await db.query(
+            `
+            UPDATE collections c
+            LEFT JOIN bills b 
+              ON c.farmer_id = b.farmer_id
+              AND c.dairy_id = b.dairy_id
+              AND DATE(c.created_at) BETWEEN DATE(b.period_start) AND DATE(b.period_end)
+            LEFT JOIN rate r
+              ON c.dairy_id = r.organisation_id
+              AND c.type = r.type
+              AND ROUND(c.fat,1)=r.fat
+              AND ROUND(c.snf,1)=r.snf
+              AND (r.effective_date=? OR r.effective_date IS NULL)
+            SET c.rate=0
+            WHERE c.dairy_id=? 
+              AND c.type=?
+              AND DATE(c.created_at) <= ?
+              AND (b.is_finalized IS NULL OR b.is_finalized=0)
+              AND r.id IS NULL
+            `,
+            [effective_date, organisation_id, type, effective_date]
+          );
+        }
+
+        res.json({
+          success: true,
+          message: "Rates uploaded and collections updated successfully",
+          inserted: results.length,
+          updatedCollections,
+          organisation_id,
+          type,
+          name,
+          effective_date: effective_date || null,
+        });
+      } catch (err) {
+        console.error("Error processing rates:", err);
+        res.status(500).json({ message: "Database error", error: err.message });
       }
     });
-  })
-  .on('end', async () => {
-    if (results.length === 0) {
-      return res.status(400).json({ message: 'No valid rate records found in CSV' });
-    }
-
-    try {
-
-      await db.query(
-          'DELETE FROM rate WHERE organisation_id = ? AND type = ? AND name = ?',
-          [organisation_id, type, name]
-      );
-
-      await db.query(
-        'INSERT INTO rate (fat, snf, price, type, name, created_by, organisation_id) VALUES ?',
-        [results]
-      );
-      res.json({ message: 'Rates uploaded successfully.', inserted: results.length });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ message: 'Database insert error.' });
-    }
-  });
-
 };
 
 

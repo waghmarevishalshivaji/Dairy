@@ -85,7 +85,9 @@ async function createCollection(req, res) {
   
 
     if (farmerRows.length > 0) {
-      const { expo_token, username } = farmerRows[0];
+      // const { expo_token, username } = farmerRows[0];
+      const expo_token = farmerRows[0].expo_token
+      const username = farmerRows[0].username
 
       let titlesocket = "Milk Collection Update";
       let message = `Dear ${username || 'Farmer'}, your ${type} milk collection of ${quantity}L has been recorded successfully.`;

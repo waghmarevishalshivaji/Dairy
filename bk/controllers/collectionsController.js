@@ -80,7 +80,7 @@ async function createCollection(req, res) {
       [farmer_id, dairy_id]
     );
 
-    const io = req.app.get("io");
+    // const io = req.app.get("io");
 
   
 
@@ -89,18 +89,26 @@ async function createCollection(req, res) {
       const expo_token = farmerRows[0].expo_token
       const username = farmerRows[0].username
 
+     
+
       let titlesocket = "Milk Collection Update";
       let message = `Dear ${username || 'Farmer'}, your ${type} milk collection of ${quantity}L has been recorded successfully.`;
+     
+      
+       await db.execute(
+        "INSERT INTO notifications (dairy_id, title, message, farmer_id) VALUES (?, ?, ?, ?)",
+        [dairy_id, titlesocket, message, username]
+      );
       // let dairy_id = dairy_id;
       // let farmer_id = "Milk Collection Update";
       // Emit to all farmers of this dairy
-      io.to(`dairy_${dairy_id}`).emit("newNotification", {
-        titlesocket,
-        message,
-        dairy_id,
-        farmer_id,
-        timestamp: new Date()
-      });
+      // io.to(`dairy_${dairy_id}`).emit("newNotification", {
+      //   titlesocket,
+      //   message,
+      //   dairy_id,
+      //   farmer_id,
+      //   timestamp: new Date()
+      // });
 
       if (expo_token && Expo.isExpoPushToken(expo_token)) {
         const messages = [{

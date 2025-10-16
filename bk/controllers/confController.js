@@ -243,7 +243,7 @@ const uploadRates = async (req, res) => {
               AND c.type=?
               AND DATE(c.created_at) <= ?
               AND (b.is_finalized IS NULL OR b.is_finalized=0)
-              AND r.id IS NULL
+              AND r.rate_id IS NULL
             `,
             [effective_date, organisation_id, type, effective_date]
           );

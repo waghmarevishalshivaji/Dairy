@@ -19,6 +19,8 @@ async function insertPayment(req, res) {
       'descriptions'
     ];
 
+
+
     
 
     const requiredFields = ['date', 'dairy_id', 'farmer_id', 'payment_type'];
@@ -36,6 +38,78 @@ async function insertPayment(req, res) {
     // 3. Create placeholders and build query
     const placeholders = fieldsToInsert.map(() => '?').join(', ');
     const query = `INSERT INTO farmer_payments (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
+
+
+    const [farmerRows] = await db.execute(
+      `SELECT expo_token, username FROM users WHERE username = ? AND dairy_id = ?`,
+      [farmer_id, dairy_id]
+    );
+
+    if (farmerRows.length > 0) {
+      // const { expo_token, username } = farmerRows[0];
+      const expo_token = farmerRows[0].expo_token
+      const username = farmerRows[0].username
+
+      let currentDate;
+
+      if (date) {
+        // If frontend sends full "YYYY-MM-DD HH:mm:ss"
+        currentDate = new Date(date.replace(" ", "T") + "+05:30");
+      } else {
+        // Default to now
+        currentDate = new Date();
+      }
+
+
+       // Format IST datetime → "YYYY-MM-DD HH:mm:ss"
+      const istDateTime = currentDate.toLocaleString("en-US", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23"
+      });
+
+      const [datePart, timePart] = istDateTime.split(", ");
+      const [month, day, year] = datePart.split("/");
+      const formattedIdtDateTime = `${year}-${month}-${day} ${timePart}`;
+     
+
+      let titlesocket = "Payment Update";
+      let message = `Dear ${username || 'Farmer'}, your payment is updated.`;
+     
+      
+       await db.execute(
+        "INSERT INTO notifications (dairy_id, title, message, farmer_id) VALUES (?, ?, ?, ?)",
+        [dairy_id, titlesocket, message, username]
+      );
+
+
+      if (expo_token && Expo.isExpoPushToken(expo_token)) {
+        const messages = [{
+          to: expo_token,
+          sound: 'default',
+          title: 'Milk Collection Update',
+          body: `Dear ${username || 'Farmer'}, your ${req.body['payment_type']} payment is updated successfully.`,
+          data: { type: 'payment', farmer_id, date: formattedIdtDateTime },
+        }];
+
+        // 3️⃣ Send Notification
+        const chunks = expo.chunkPushNotifications(messages);
+        for (const chunk of chunks) {
+          try {
+            await expo.sendPushNotificationsAsync(chunk);
+          } catch (error) {
+            console.error("Expo push error:", error);
+          }
+        }
+      } else {
+        console.log("Invalid or missing Expo token for farmer:", farmer_id);
+      }
+    }
 
     try {
       const [result] = await db.execute(query, values);

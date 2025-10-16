@@ -4,6 +4,10 @@ const db = require('../config/db');
 const moment = require('moment');
 const crypto = require('crypto');
 
+const { Expo } = require('expo-server-sdk')
+
+let expo = new Expo();
+
 
 // POST /api/payments
 async function insertPayment(req, res) {  
@@ -42,7 +46,7 @@ async function insertPayment(req, res) {
 
     const [farmerRows] = await db.execute(
       `SELECT expo_token, username FROM users WHERE username = ? AND dairy_id = ?`,
-      [farmer_id, dairy_id]
+      [req.body['farmer_id'], req.body['dairy_id']]
     );
 
     if (farmerRows.length > 0) {
@@ -50,16 +54,17 @@ async function insertPayment(req, res) {
       const expo_token = farmerRows[0].expo_token
       const username = farmerRows[0].username
 
+
       let currentDate;
 
-      if (date) {
-        // If frontend sends full "YYYY-MM-DD HH:mm:ss"
-        currentDate = new Date(date.replace(" ", "T") + "+05:30");
-      } else {
-        // Default to now
-        currentDate = new Date();
-      }
-
+      // if (date) {
+      //   // If frontend sends full "YYYY-MM-DD HH:mm:ss"
+      //   currentDate = new Date(date.replace(" ", "T") + "+05:30");
+      // } else {
+      //   // Default to now
+      //   currentDate = new Date();
+      // }
+      currentDate = new Date();
 
        // Format IST datetime → "YYYY-MM-DD HH:mm:ss"
       const istDateTime = currentDate.toLocaleString("en-US", {
@@ -84,7 +89,7 @@ async function insertPayment(req, res) {
       
        await db.execute(
         "INSERT INTO notifications (dairy_id, title, message, farmer_id) VALUES (?, ?, ?, ?)",
-        [dairy_id, titlesocket, message, username]
+        [req.body['dairy_id'], titlesocket, message, username]
       );
 
 
@@ -94,7 +99,7 @@ async function insertPayment(req, res) {
           sound: 'default',
           title: 'Milk Collection Update',
           body: `Dear ${username || 'Farmer'}, your ${req.body['payment_type']} payment is updated successfully.`,
-          data: { type: 'payment', farmer_id, date: formattedIdtDateTime },
+          data: { type: 'payment', username, date: formattedIdtDateTime },
         }];
 
         // 3️⃣ Send Notification

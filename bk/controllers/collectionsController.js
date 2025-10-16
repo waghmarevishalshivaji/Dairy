@@ -99,16 +99,7 @@ async function createCollection(req, res) {
         "INSERT INTO notifications (dairy_id, title, message, farmer_id) VALUES (?, ?, ?, ?)",
         [dairy_id, titlesocket, message, username]
       );
-      // let dairy_id = dairy_id;
-      // let farmer_id = "Milk Collection Update";
-      // Emit to all farmers of this dairy
-      // io.to(`dairy_${dairy_id}`).emit("newNotification", {
-      //   titlesocket,
-      //   message,
-      //   dairy_id,
-      //   farmer_id,
-      //   timestamp: new Date()
-      // });
+
 
       if (expo_token && Expo.isExpoPushToken(expo_token)) {
         const messages = [{
@@ -1158,6 +1149,388 @@ async function getTodaysCollectionByFarmer(req, res) {
 //   }
 // }
 
+// async function getTodaysCollectionfarmer(req, res) {
+//   let { type, dairy_id, date, farmer_id } = req.query;
+
+//   try {
+//     if (!dairy_id || !farmer_id) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "dairy_id and farmer_id are required" });
+//     }
+
+//     // Date filter — default to today
+//     const today = new Date();
+//     const reportDate = date || today.toISOString().slice(0, 10); // YYYY-MM-DD
+
+//     // ---- Fetch all collections for the day ----
+//     let query = `
+//       SELECT 
+//         id,
+//         shift,
+//         type,
+//         quantity,
+//         fat,
+//         snf,
+//         clr,
+//         rate,
+//         (quantity * rate) as amount,
+//         created_at
+//       FROM collections
+//       WHERE DATE(created_at) = ?
+//         AND dairy_id = ?
+//         AND farmer_id = ?
+//     `;
+//     const params = [reportDate, dairy_id, farmer_id];
+
+//     if (type && type !== "All") {
+//       query += ` AND type = ?`;
+//       params.push(type);
+//     }
+
+//     query += ` ORDER BY shift, created_at`;
+
+//     const [rows] = await db.execute(query, params);
+
+//     // ---- Payments / deductions ----
+//     const [paymentRows] = await db.execute(
+//       `SELECT 
+//          SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) AS advance,
+//          SUM(CASE WHEN payment_type='cattle feed' THEN amount_taken ELSE 0 END) AS cattle_feed,
+//          SUM(CASE WHEN payment_type='Other1' THEN amount_taken ELSE 0 END) AS other1,
+//          SUM(CASE WHEN payment_type='Other2' THEN amount_taken ELSE 0 END) AS other2,
+//          SUM(amount_taken) AS total_deductions,
+//          SUM(received) AS total_received
+//        FROM farmer_payments
+//        WHERE dairy_id=? AND farmer_id=? AND DATE(date)=?`,
+//       [dairy_id, farmer_id, reportDate]
+//     );
+
+//     const payments = paymentRows[0] || {};
+
+//     // ---- Last payment date ----
+//     const [lastPayRows] = await db.execute(
+//       `SELECT MAX(created_at) as lastPayDate
+//        FROM bills
+//        WHERE farmer_id=? AND dairy_id=? AND status='paid'`,
+//       [farmer_id, dairy_id]
+//     );
+//     const lastPayDate = lastPayRows[0]?.lastPayDate || "NA";
+
+//     // ---- 🧮 Average fat till date ----
+//     const [avgFatTillDateRows] = await db.execute(
+//       `SELECT 
+//          ROUND(AVG(fat),2) AS avg_fat_till_date,
+//          ROUND(AVG(snf),2) AS avg_snf_till_date,
+//          ROUND(AVG(clr),2) AS avg_clr_till_date
+//        FROM collections
+//        WHERE dairy_id=? AND farmer_id=? AND DATE(created_at) <= ?`,
+//       [dairy_id, farmer_id, reportDate]
+//     );
+
+//     const avgTillDate = avgFatTillDateRows[0] || {
+//       avg_fat_till_date: 0,
+//       avg_snf_till_date: 0,
+//       avg_clr_till_date: 0,
+//     };
+
+//     // ---- Group data by shift ----
+//     const grouped = { morning: [], evening: [] };
+
+//     rows.forEach(r => {
+//       const entry = {
+//         id: r.id,
+//         type: r.type,
+//         shift: r.shift,
+//         quantity: Number(r.quantity),
+//         fat: Number(r.fat),
+//         snf: Number(r.snf),
+//         clr: Number(r.clr),
+//         rate: Number(r.rate),
+//         amount: Number(r.amount),
+//         created_at: r.created_at
+//       };
+//       if (r.shift.toLowerCase() === "morning") grouped.morning.push(entry);
+//       if (r.shift.toLowerCase() === "evening") grouped.evening.push(entry);
+//     });
+
+//     // ---- Calculate shift averages ----
+//     function calcShiftTotals(entries) {
+//       if (!entries.length)
+//         return {
+//           total_quantity: 0,
+//           avg_fat: 0,
+//           avg_snf: 0,
+//           avg_clr: 0,
+//           total_amount: 0,
+//         };
+
+//       const totalQty = entries.reduce((a, b) => a + b.quantity, 0);
+//       const avgFat = entries.reduce((a, b) => a + b.fat, 0) / entries.length;
+//       const avgSnf = entries.reduce((a, b) => a + b.snf, 0) / entries.length;
+//       const avgClr = entries.reduce((a, b) => a + b.clr, 0) / entries.length;
+//       const totalAmount = entries.reduce((a, b) => a + b.amount, 0);
+
+//       return {
+//         total_quantity: totalQty,
+//         avg_fat: avgFat.toFixed(2),
+//         avg_snf: avgSnf.toFixed(2),
+//         avg_clr: avgClr.toFixed(2),
+//         total_amount: totalAmount,
+//       };
+//     }
+
+//     const morningTotals = calcShiftTotals(grouped.morning);
+//     const eveningTotals = calcShiftTotals(grouped.evening);
+
+//     const totalQty = morningTotals.total_quantity + eveningTotals.total_quantity;
+//     const totalAmount = morningTotals.total_amount + eveningTotals.total_amount;
+//     const dailyAvgFat =
+//       (Number(morningTotals.avg_fat) + Number(eveningTotals.avg_fat)) / 2 || 0;
+
+//     const deductions = {
+//       advance: Number(payments.advance) || 0,
+//       cattle_feed: Number(payments.cattle_feed) || 0,
+//       other1: Number(payments.other1) || 0,
+//       other2: Number(payments.other2) || 0,
+//       total: Number(payments.total_deductions) || 0,
+//     };
+
+//     const netAmount = totalAmount - deductions.total + (Number(payments.total_received) || 0);
+
+//     // ---- Final Response ----
+//     res.status(200).json({
+//       success: true,
+//       message: "Today's collection fetched successfully",
+//       date: reportDate,
+//       data: {
+//         morning: {
+//           shift: "Morning",
+//           entries: grouped.morning,
+//           totals: morningTotals,
+//         },
+//         evening: {
+//           shift: "Evening",
+//           entries: grouped.evening,
+//           totals: eveningTotals,
+//         },
+//         overall: {
+//           totalQty,
+//           totalAmount,
+//           avgFat: dailyAvgFat.toFixed(2),
+//         },
+//         tillDateAverages: {
+//           avg_fat_till_date: avgTillDate.avg_fat_till_date,
+//           avg_snf_till_date: avgTillDate.avg_snf_till_date,
+//           avg_clr_till_date: avgTillDate.avg_clr_till_date,
+//         },
+//         financials: {
+//           deductions,
+//           total_received: Number(payments.total_received) || 0,
+//           netAmount,
+//           lastPayDate,
+//         },
+//       },
+//     });
+//   } catch (err) {
+//     console.error("Error fetching today's collection:", err);
+//     res.status(500).json({ success: false, message: "Server error" });
+//   }
+// }
+
+// async function getTodaysCollectionfarmer(req, res) {
+//   let { type, dairy_id, date, farmer_id } = req.query;
+
+//   try {
+//     if (!dairy_id || !farmer_id) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "dairy_id and farmer_id are required" });
+//     }
+
+//     const today = new Date();
+//     const reportDate = date || today.toISOString().slice(0, 10); // YYYY-MM-DD
+
+//     // 🧾 1️⃣ Fetch last finalized bill
+//     const [lastBillRows] = await db.execute(
+//       `SELECT *
+//        FROM bills
+//        WHERE dairy_id = ? AND farmer_id = ? AND is_finalized = 1
+//        ORDER BY period_end DESC
+//        LIMIT 1`,
+//       [dairy_id, farmer_id]
+//     );
+//     const lastBill = lastBillRows[0] || null;
+//     const lastBillEndDate = lastBill ? lastBill.period_end : null;
+
+//     // 🧮 2️⃣ Fetch all collections for the day
+//     let dayQuery = `
+//       SELECT 
+//         id, shift, type, quantity, fat, snf, clr, rate,
+//         (quantity * rate) AS amount, created_at
+//       FROM collections
+//       WHERE DATE(created_at) = ? AND dairy_id = ? AND farmer_id = ?
+//     `;
+//     const params = [reportDate, dairy_id, farmer_id];
+
+//     if (type && type !== "All") {
+//       dayQuery += ` AND type = ?`;
+//       params.push(type);
+//     }
+
+//     dayQuery += ` ORDER BY shift, created_at`;
+//     const [rows] = await db.execute(dayQuery, params);
+
+//     // 💰 3️⃣ Payments / deductions for the day
+//     const [paymentRows] = await db.execute(
+//       `SELECT 
+//          SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) AS advance,
+//          SUM(CASE WHEN payment_type='cattle feed' THEN amount_taken ELSE 0 END) AS cattle_feed,
+//          SUM(CASE WHEN payment_type='Other1' THEN amount_taken ELSE 0 END) AS other1,
+//          SUM(CASE WHEN payment_type='Other2' THEN amount_taken ELSE 0 END) AS other2,
+//          SUM(amount_taken) AS total_deductions,
+//          SUM(received) AS total_received
+//        FROM farmer_payments
+//        WHERE dairy_id=? AND farmer_id=? AND DATE(date)=?`,
+//       [dairy_id, farmer_id, reportDate]
+//     );
+//     const payments = paymentRows[0] || {};
+
+//     // 📅 4️⃣ Average fat till date
+//     const [avgFatTillDateRows] = await db.execute(
+//       `SELECT 
+//          ROUND(AVG(fat),2) AS avg_fat_till_date,
+//          ROUND(AVG(snf),2) AS avg_snf_till_date,
+//          ROUND(AVG(clr),2) AS avg_clr_till_date
+//        FROM collections
+//        WHERE dairy_id=? AND farmer_id=? AND DATE(created_at) <= ?`,
+//       [dairy_id, farmer_id, reportDate]
+//     );
+//     const avgTillDate = avgFatTillDateRows[0] || {
+//       avg_fat_till_date: 0,
+//       avg_snf_till_date: 0,
+//       avg_clr_till_date: 0,
+//     };
+
+//     // 🧾 5️⃣ Totals after last bill (if exists)
+//     let afterBillTotals = {};
+//     if (lastBillEndDate) {
+//       const [afterCollections] = await db.execute(
+//         `SELECT 
+//             SUM(quantity) AS total_liters,
+//             ROUND(AVG(fat),2) AS avg_fat,
+//             ROUND(AVG(snf),2) AS avg_snf,
+//             ROUND(AVG(clr),2) AS avg_clr,
+//             SUM(quantity * rate) AS total_amount
+//          FROM collections
+//          WHERE dairy_id=? AND farmer_id=? AND DATE(created_at) > ?`,
+//         [dairy_id, farmer_id, lastBillEndDate]
+//       );
+
+//       const [afterPayments] = await db.execute(
+//         `SELECT 
+//            SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) AS advance,
+//            SUM(CASE WHEN payment_type='cattle feed' THEN amount_taken ELSE 0 END) AS cattle_feed,
+//            SUM(CASE WHEN payment_type='Other1' THEN amount_taken ELSE 0 END) AS other1,
+//            SUM(CASE WHEN payment_type='Other2' THEN amount_taken ELSE 0 END) AS other2,
+//            SUM(amount_taken) AS total_deductions,
+//            SUM(received) AS total_received
+//          FROM farmer_payments
+//          WHERE dairy_id=? AND farmer_id=? AND DATE(date) > ?`,
+//         [dairy_id, farmer_id, lastBillEndDate]
+//       );
+
+//       afterBillTotals = {
+//         collections: afterCollections[0] || {},
+//         payments: afterPayments[0] || {},
+//       };
+//     } else {
+//       afterBillTotals = { collections: {}, payments: {} };
+//     }
+
+//     // 🧮 6️⃣ Group day’s data by shift
+//     const grouped = { morning: [], evening: [] };
+//     rows.forEach(r => {
+//       const entry = {
+//         id: r.id,
+//         type: r.type,
+//         shift: r.shift,
+//         quantity: Number(r.quantity),
+//         fat: Number(r.fat),
+//         snf: Number(r.snf),
+//         clr: Number(r.clr),
+//         rate: Number(r.rate),
+//         amount: Number(r.amount),
+//         created_at: r.created_at
+//       };
+//       if (r.shift.toLowerCase() === "morning") grouped.morning.push(entry);
+//       if (r.shift.toLowerCase() === "evening") grouped.evening.push(entry);
+//     });
+
+//     // 🧾 Shift-wise totals
+//     function calcShiftTotals(entries) {
+//       if (!entries.length)
+//         return { total_quantity: 0, avg_fat: 0, avg_snf: 0, avg_clr: 0, total_amount: 0 };
+
+//       const totalQty = entries.reduce((a, b) => a + b.quantity, 0);
+//       const avgFat = entries.reduce((a, b) => a + b.fat, 0) / entries.length;
+//       const avgSnf = entries.reduce((a, b) => a + b.snf, 0) / entries.length;
+//       const avgClr = entries.reduce((a, b) => a + b.clr, 0) / entries.length;
+//       const totalAmount = entries.reduce((a, b) => a + b.amount, 0);
+
+//       return {
+//         total_quantity: totalQty,
+//         avg_fat: avgFat.toFixed(2),
+//         avg_snf: avgSnf.toFixed(2),
+//         avg_clr: avgClr.toFixed(2),
+//         total_amount: totalAmount,
+//       };
+//     }
+
+//     const morningTotals = calcShiftTotals(grouped.morning);
+//     const eveningTotals = calcShiftTotals(grouped.evening);
+
+//     const totalQty = morningTotals.total_quantity + eveningTotals.total_quantity;
+//     const totalAmount = morningTotals.total_amount + eveningTotals.total_amount;
+//     const dailyAvgFat =
+//       (Number(morningTotals.avg_fat) + Number(eveningTotals.avg_fat)) / 2 || 0;
+
+//     const deductions = {
+//       advance: Number(payments.advance) || 0,
+//       cattle_feed: Number(payments.cattle_feed) || 0,
+//       other1: Number(payments.other1) || 0,
+//       other2: Number(payments.other2) || 0,
+//       total: Number(payments.total_deductions) || 0,
+//     };
+
+//     const netAmount = totalAmount - deductions.total + (Number(payments.total_received) || 0);
+
+//     // ✅ Final Response
+//     res.status(200).json({
+//       success: true,
+//       message: "Today's collection fetched successfully",
+//       date: reportDate,
+//       lastBill: lastBill || null,
+//       afterLastBillTotals,
+//       data: {
+//         morning: { shift: "Morning", entries: grouped.morning, totals: morningTotals },
+//         evening: { shift: "Evening", entries: grouped.evening, totals: eveningTotals },
+//         overall: { totalQty, totalAmount, avgFat: dailyAvgFat.toFixed(2) },
+//         tillDateAverages: avgTillDate,
+//         financials: {
+//           deductions,
+//           total_received: Number(payments.total_received) || 0,
+//           netAmount,
+//           lastPayDate: lastBill ? lastBill.period_end : "NA",
+//         },
+//       },
+//     });
+//   } catch (err) {
+//     console.error("Error fetching today's collection:", err);
+//     res.status(500).json({ success: false, message: "Server error" });
+//   }
+// }
+
 async function getTodaysCollectionfarmer(req, res) {
   let { type, dairy_id, date, farmer_id } = req.query;
 
@@ -1168,11 +1541,22 @@ async function getTodaysCollectionfarmer(req, res) {
         .json({ success: false, message: "dairy_id and farmer_id are required" });
     }
 
-    // Date filter — default to today
     const today = new Date();
     const reportDate = date || today.toISOString().slice(0, 10); // YYYY-MM-DD
 
-    // ---- Fetch all collections for the day ----
+    // 🧾 1️⃣ Fetch last finalized bill
+    const [lastBillRows] = await db.execute(
+      `SELECT * 
+       FROM bills 
+       WHERE dairy_id=? AND farmer_id=? AND is_finalized=1 
+       ORDER BY period_end DESC 
+       LIMIT 1`,
+      [dairy_id, farmer_id]
+    );
+    const lastBill = lastBillRows[0] || null;
+    const lastBillEndDate = lastBill ? lastBill.period_end : null;
+
+    // 🧮 2️⃣ Fetch all collections for the day
     let query = `
       SELECT 
         id,
@@ -1201,7 +1585,7 @@ async function getTodaysCollectionfarmer(req, res) {
 
     const [rows] = await db.execute(query, params);
 
-    // ---- Payments / deductions ----
+    // 💰 3️⃣ Payments / deductions
     const [paymentRows] = await db.execute(
       `SELECT 
          SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) AS advance,
@@ -1217,16 +1601,7 @@ async function getTodaysCollectionfarmer(req, res) {
 
     const payments = paymentRows[0] || {};
 
-    // ---- Last payment date ----
-    const [lastPayRows] = await db.execute(
-      `SELECT MAX(created_at) as lastPayDate
-       FROM bills
-       WHERE farmer_id=? AND dairy_id=? AND status='paid'`,
-      [farmer_id, dairy_id]
-    );
-    const lastPayDate = lastPayRows[0]?.lastPayDate || "NA";
-
-    // ---- 🧮 Average fat till date ----
+    // 📅 4️⃣ Average fat till date
     const [avgFatTillDateRows] = await db.execute(
       `SELECT 
          ROUND(AVG(fat),2) AS avg_fat_till_date,
@@ -1243,7 +1618,24 @@ async function getTodaysCollectionfarmer(req, res) {
       avg_clr_till_date: 0,
     };
 
-    // ---- Group data by shift ----
+    // 🧾 5️⃣ Get totals after last bill (if any)
+    let afterLastBillTotals = null;
+    if (lastBillEndDate) {
+      const [afterTotals] = await db.execute(
+        `SELECT 
+          SUM(quantity) AS total_liters,
+          SUM(quantity * rate) AS total_amount,
+          ROUND(AVG(fat),2) AS avg_fat,
+          ROUND(AVG(snf),2) AS avg_snf,
+          ROUND(AVG(clr),2) AS avg_clr
+         FROM collections
+         WHERE dairy_id=? AND farmer_id=? AND DATE(created_at) > ?`,
+        [dairy_id, farmer_id, lastBillEndDate]
+      );
+      afterLastBillTotals = afterTotals[0] || null;
+    }
+
+    // 🧮 6️⃣ Group by shift
     const grouped = { morning: [], evening: [] };
 
     rows.forEach(r => {
@@ -1263,7 +1655,7 @@ async function getTodaysCollectionfarmer(req, res) {
       if (r.shift.toLowerCase() === "evening") grouped.evening.push(entry);
     });
 
-    // ---- Calculate shift averages ----
+    // 🧮 Shift totals
     function calcShiftTotals(entries) {
       if (!entries.length)
         return {
@@ -1305,13 +1697,16 @@ async function getTodaysCollectionfarmer(req, res) {
       total: Number(payments.total_deductions) || 0,
     };
 
-    const netAmount = totalAmount - deductions.total + (Number(payments.total_received) || 0);
+    const netAmount =
+      totalAmount - deductions.total + (Number(payments.total_received) || 0);
 
-    // ---- Final Response ----
+    // ✅ Final Response (kept structure identical, just added lastBill & afterLastBillTotals)
     res.status(200).json({
       success: true,
       message: "Today's collection fetched successfully",
       date: reportDate,
+      lastBill,                // 🆕 full last bill details
+      afterLastBillTotals,     // 🆕 totals after that bill
       data: {
         morning: {
           shift: "Morning",
@@ -1337,7 +1732,7 @@ async function getTodaysCollectionfarmer(req, res) {
           deductions,
           total_received: Number(payments.total_received) || 0,
           netAmount,
-          lastPayDate,
+          lastPayDate: lastBill?.period_end || "NA",
         },
       },
     });
@@ -1346,6 +1741,8 @@ async function getTodaysCollectionfarmer(req, res) {
     res.status(500).json({ success: false, message: "Server error" });
   }
 }
+
+
 
 
 

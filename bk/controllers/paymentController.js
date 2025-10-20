@@ -114,7 +114,8 @@ async function insertPayment(req, res) {
           try {
             await expo.sendPushNotificationsAsync(chunk);
           } catch (error) {
-            console.error("Expo push error:", error);
+            res.status(200).json({ success: true, message: 'Payment record added successfully', id: result.insertId });
+            // console.error("Expo push error:", error);
           }
         }
       } else {

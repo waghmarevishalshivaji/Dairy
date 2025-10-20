@@ -49,7 +49,10 @@ async function insertPayment(req, res) {
       [req.body['farmer_id'], req.body['dairy_id']]
     );
 
-    if (farmerRows.length > 0) {
+    console.log(farmerRows)
+    console.log(farmerRows[0].expo_token)
+
+    if (farmerRows.length > 0 ) {
       // const { expo_token, username } = farmerRows[0];
       const expo_token = farmerRows[0].expo_token
       const username = farmerRows[0].username
@@ -99,7 +102,7 @@ async function insertPayment(req, res) {
     try {
       const [result] = await db.execute(query, values);
 
-      if (expo_token && Expo.isExpoPushToken(expo_token)) {
+      if (farmerRows[0].expo_token && Expo.isExpoPushToken(expo_token)) {
         const messages = [{
           to: expo_token,
           sound: 'default',
@@ -119,7 +122,7 @@ async function insertPayment(req, res) {
           }
         }
       } else {
-        // console.log("Invalid or missing Expo token for farmer:", username);
+        // console.log("Invalid or missing Expo token for farmer:");
          res.status(200).json({ success: true, message: 'Payment record added successfully', id: result.insertId });
       }
 

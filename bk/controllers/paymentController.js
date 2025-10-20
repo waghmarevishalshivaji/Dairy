@@ -93,6 +93,12 @@ async function insertPayment(req, res) {
       );
 
 
+     
+    }
+
+    try {
+      const [result] = await db.execute(query, values);
+
       if (expo_token && Expo.isExpoPushToken(expo_token)) {
         const messages = [{
           to: expo_token,
@@ -112,12 +118,10 @@ async function insertPayment(req, res) {
           }
         }
       } else {
-        console.log("Invalid or missing Expo token for farmer:", farmer_id);
+        // console.log("Invalid or missing Expo token for farmer:", username);
+         res.status(200).json({ success: true, message: 'Payment record added successfully', id: result.insertId });
       }
-    }
 
-    try {
-      const [result] = await db.execute(query, values);
       res.status(200).json({ success: true, message: 'Payment record added successfully', id: result.insertId });
     } catch (error) {
       console.error('Error inserting payment:', error);

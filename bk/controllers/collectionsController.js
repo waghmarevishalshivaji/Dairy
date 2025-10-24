@@ -2420,59 +2420,113 @@ async function getCollectionBytab(req, res) {
 //   }
 // }
 
+// async function updateCollection(req, res) {
+//   const { id } = req.params;
+//   const { farmer_id, type, quantity, fat, snf, clr, rate, shift, date } = req.body;
+
+//   try {
+//     // 1️⃣ Determine base date — use provided or now
+//     let currentDate;
+//     if (date) {
+//       // If only YYYY-MM-DD is passed, append midnight
+//       if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+//         currentDate = new Date(`${date}T00:00:00+05:30`);
+//       } else {
+//         currentDate = new Date(date);
+//       }
+//     } else {
+//       currentDate = new Date();
+//     }
+
+//     // 2️⃣ Convert UTC → IST manually
+//     const utcOffsetMs = currentDate.getTime();
+//     const istOffset = 5.5 * 60 * 60 * 1000; // +5:30 hrs
+//     const istDate = new Date(utcOffsetMs + istOffset);
+
+//     // 3️⃣ Format IST datetime for MySQL (YYYY-MM-DD HH:mm:ss)
+//     const pad = (n) => n.toString().padStart(2, "0");
+//     const formattedIST = `${istDate.getFullYear()}-${pad(istDate.getMonth() + 1)}-${pad(
+//       istDate.getDate()
+//     )} ${pad(istDate.getHours())}:${pad(istDate.getMinutes())}:${pad(
+//       istDate.getSeconds()
+//     )}`;
+
+//     // 4️⃣ Update collection
+//     const [result] = await db.execute(
+//       `UPDATE collections 
+//        SET farmer_id = ?, type = ?, quantity = ?, fat = ?, snf = ?, clr = ?, rate = ?, shift = ?, created_at = ?
+//        WHERE id = ?`,
+//       [farmer_id, type, quantity, fat, snf, clr, rate, shift, formattedIST, id]
+//     );
+
+//     if (result.affectedRows === 0) {
+//       return res.status(404).json({ success: false, message: "Collection not found or not updated" });
+//     }
+
+//     res.status(200).json({
+//       success: true,
+//       message: "Collection updated successfully",
+//       updated_at: formattedIST, // IST datetime confirmation
+//     });
+//   } catch (err) {
+//     console.error("Error updating collection:", err);
+//     res.status(500).json({ success: false, message: "Server error" });
+//   }
+// }
+
 async function updateCollection(req, res) {
   const { id } = req.params;
   const { farmer_id, type, quantity, fat, snf, clr, rate, shift, date } = req.body;
 
   try {
-    // 1️⃣ Determine base date — use provided or now
-    let currentDate;
+    let istDate;
+
     if (date) {
-      // If only YYYY-MM-DD is passed, append midnight
+      // If only date is passed (no time), append midnight
       if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-        currentDate = new Date(`${date}T00:00:00+05:30`);
+        istDate = `${date} 00:00:00`;
       } else {
-        currentDate = new Date(date);
+        // Keep given datetime as IST, no conversion
+        istDate = date;
       }
     } else {
-      currentDate = new Date();
+      // Current IST datetime
+      const now = new Date();
+      const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+      const istOffset = 5.5 * 60 * 60 * 1000;
+      const istNow = new Date(utc + istOffset);
+      const pad = (n) => n.toString().padStart(2, "0");
+      istDate = `${istNow.getFullYear()}-${pad(istNow.getMonth() + 1)}-${pad(
+        istNow.getDate()
+      )} ${pad(istNow.getHours())}:${pad(istNow.getMinutes())}:${pad(
+        istNow.getSeconds()
+      )}`;
     }
 
-    // 2️⃣ Convert UTC → IST manually
-    const utcOffsetMs = currentDate.getTime();
-    const istOffset = 5.5 * 60 * 60 * 1000; // +5:30 hrs
-    const istDate = new Date(utcOffsetMs + istOffset);
-
-    // 3️⃣ Format IST datetime for MySQL (YYYY-MM-DD HH:mm:ss)
-    const pad = (n) => n.toString().padStart(2, "0");
-    const formattedIST = `${istDate.getFullYear()}-${pad(istDate.getMonth() + 1)}-${pad(
-      istDate.getDate()
-    )} ${pad(istDate.getHours())}:${pad(istDate.getMinutes())}:${pad(
-      istDate.getSeconds()
-    )}`;
-
-    // 4️⃣ Update collection
     const [result] = await db.execute(
       `UPDATE collections 
        SET farmer_id = ?, type = ?, quantity = ?, fat = ?, snf = ?, clr = ?, rate = ?, shift = ?, created_at = ?
        WHERE id = ?`,
-      [farmer_id, type, quantity, fat, snf, clr, rate, shift, formattedIST, id]
+      [farmer_id, type, quantity, fat, snf, clr, rate, shift, istDate, id]
     );
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ success: false, message: "Collection not found or not updated" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Collection not found or not updated" });
     }
 
     res.status(200).json({
       success: true,
       message: "Collection updated successfully",
-      updated_at: formattedIST, // IST datetime confirmation
+      saved_datetime: istDate,
     });
   } catch (err) {
     console.error("Error updating collection:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 }
+
 
 
 

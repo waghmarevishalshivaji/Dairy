@@ -266,6 +266,170 @@ const upload = multer({
 //     });
 // };
 
+// const uploadRates = async (req, res) => {
+//   const filePath = req.file.path;
+//   const { created_by, organisation_id, name, type, effective_date } = req.body;
+
+//   const results = [];
+
+//   fs.createReadStream(filePath)
+//     .pipe(csvParser())
+//     .on("data", (row) => {
+//       const fat = parseFloat(row["FAT/SNF"]?.trim());
+//       if (isNaN(fat)) return;
+
+//       Object.keys(row).forEach((key) => {
+//         if (key === "FAT/SNF") return;
+
+//         const snf = parseFloat(key.trim());
+//         const price = parseFloat(row[key].trim());
+
+//         if (!isNaN(snf) && !isNaN(price)) {
+//           results.push([
+//             fat,
+//             snf,
+//             price,
+//             type,
+//             name,
+//             created_by,
+//             organisation_id,
+//             effective_date || null,
+//           ]);
+//         }
+//       });
+//     })
+//     .on("end", async () => {
+//       if (results.length === 0) {
+//         return res
+//           .status(400)
+//           .json({ message: "No valid rate records found in CSV" });
+//       }
+
+//       try {
+//         // 🔹 Remove old rates for same chart name + type
+//         await db.query(
+//           "DELETE FROM rate WHERE organisation_id=? AND type=? AND name=?",
+//           [organisation_id, type, name]
+//         );
+
+//         // 🔹 Insert new rate records
+//         await db.query(
+//           `INSERT INTO rate (fat, snf, price, type, name, created_by, organisation_id, effective_date)
+//            VALUES ?`,
+//           [results]
+//         );
+
+//         let updatedCollections = 0;
+
+//         // 🔹 If effective_date provided → update collections accordingly
+//         if (effective_date) {
+//           // Step 1️⃣: Fetch unfinalized bills whose period includes the effective date
+//           const [unfinalizedBills] = await db.query(
+//             `
+//             SELECT id, dairy_id, farmer_id, period_start, period_end 
+//             FROM bills 
+//             WHERE dairy_id=? 
+//               AND is_finalized=0 
+//               AND ? BETWEEN DATE(period_start) AND DATE(period_end)
+//             `,
+//             [organisation_id, effective_date]
+//           );
+
+//           if (unfinalizedBills.length > 0) {
+//             // Step 2️⃣: Get all rate entries for that effective date or null
+//             const [rateRows] = await db.query(
+//               `
+//               SELECT fat, snf, price 
+//               FROM rate
+//               WHERE organisation_id=? AND type=? 
+//                 AND name=? 
+//                 AND (effective_date=? OR effective_date IS NULL)
+//               `,
+//               [organisation_id, type, name, effective_date]
+//             );
+
+//             // Step 3️⃣: For each collection in those unfinalized bills, update rate if matched
+//             for (const bill of unfinalizedBills) {
+//               for (const rateRow of rateRows) {
+//                 const { fat, snf, price } = rateRow;
+
+//                 const [affected] = await db.query(
+//                   `
+//                   UPDATE collections c
+//                   SET c.rate = ?
+//                   WHERE c.dairy_id=? 
+//                     AND c.farmer_id=? 
+//                     AND c.type=? 
+//                     AND DATE(c.created_at) BETWEEN DATE(?) AND DATE(?)
+//                     AND DATE(c.created_at) >= ?
+//                     AND ROUND(c.fat,1)=?
+//                     AND ROUND(c.snf,1)=?
+//                   `,
+//                   [
+//                     price,
+//                     organisation_id,
+//                     bill.farmer_id,
+//                     type,
+//                     bill.period_start,
+//                     bill.period_end,
+//                     effective_date,
+//                     fat,
+//                     snf,
+//                   ]
+//                 );
+
+//                 updatedCollections += affected.affectedRows || 0;
+//               }
+//             }
+
+//             // Step 4️⃣: Set rate = 0 for unmatched collections (same name/type/date window)
+//             await db.query(
+//               `
+//               UPDATE collections c
+//               LEFT JOIN bills b
+//                 ON c.dairy_id=b.dairy_id
+//                 AND c.farmer_id=b.farmer_id
+//                 AND DATE(c.created_at) BETWEEN DATE(b.period_start) AND DATE(b.period_end)
+//               LEFT JOIN rate r
+//                 ON c.dairy_id=r.organisation_id
+//                 AND c.type=r.type
+//                 AND ROUND(c.fat,1)=r.fat
+//                 AND ROUND(c.snf,1)=r.snf
+//                 AND r.name=?
+//                 AND (r.effective_date=? OR r.effective_date IS NULL)
+//               SET c.rate=0
+//               WHERE c.dairy_id=? 
+//                 AND c.type=?
+//                 AND DATE(c.created_at)>=?
+//                 AND (b.is_finalized=0)
+//                 AND r.price IS NULL
+//               `,
+//               [name, effective_date, organisation_id, type, effective_date]
+//             );
+//           }
+//         }
+
+//         // ✅ Response
+//         res.json({
+//           success: true,
+//           message: "Rates uploaded and collections updated successfully",
+//           inserted: results.length,
+//           updatedCollections,
+//           organisation_id,
+//           type,
+//           name,
+//           effective_date: effective_date || null,
+//         });
+//       } catch (err) {
+//         console.error("Error processing rates:", err);
+//         res.status(500).json({
+//           message: "Database error while applying new rates",
+//           error: err.message,
+//         });
+//       }
+//     });
+// };
+
 const uploadRates = async (req, res) => {
   const filePath = req.file.path;
   const { created_by, organisation_id, name, type, effective_date } = req.body;
@@ -280,10 +444,8 @@ const uploadRates = async (req, res) => {
 
       Object.keys(row).forEach((key) => {
         if (key === "FAT/SNF") return;
-
         const snf = parseFloat(key.trim());
         const price = parseFloat(row[key].trim());
-
         if (!isNaN(snf) && !isNaN(price)) {
           results.push([
             fat,
@@ -300,19 +462,20 @@ const uploadRates = async (req, res) => {
     })
     .on("end", async () => {
       if (results.length === 0) {
-        return res
-          .status(400)
-          .json({ message: "No valid rate records found in CSV" });
+        return res.status(400).json({
+          success: false,
+          message: "No valid rate records found in CSV",
+        });
       }
 
       try {
-        // 🔹 Remove old rates for same chart name + type
+        // 1️⃣ Delete previous rates for same chart/type
         await db.query(
-          "DELETE FROM rate WHERE organisation_id=? AND type=? AND name=?",
+          `DELETE FROM rate WHERE organisation_id=? AND type=? AND name=?`,
           [organisation_id, type, name]
         );
 
-        // 🔹 Insert new rate records
+        // 2️⃣ Insert new rates
         await db.query(
           `INSERT INTO rate (fat, snf, price, type, name, created_by, organisation_id, effective_date)
            VALUES ?`,
@@ -321,49 +484,49 @@ const uploadRates = async (req, res) => {
 
         let updatedCollections = 0;
 
-        // 🔹 If effective_date provided → update collections accordingly
+        // 3️⃣ Only proceed if effective_date provided
         if (effective_date) {
-          // Step 1️⃣: Fetch unfinalized bills whose period includes the effective date
+          // 3.1️⃣ Find unfinalized bills that include this date
           const [unfinalizedBills] = await db.query(
             `
-            SELECT id, dairy_id, farmer_id, period_start, period_end 
-            FROM bills 
-            WHERE dairy_id=? 
-              AND is_finalized=0 
-              AND ? BETWEEN DATE(period_start) AND DATE(period_end)
+            SELECT id, farmer_id, period_start, period_end
+            FROM bills
+            WHERE dairy_id = ?
+              AND is_finalized = 0
+              AND DATE(?) BETWEEN DATE(period_start) AND DATE(period_end)
             `,
             [organisation_id, effective_date]
           );
 
           if (unfinalizedBills.length > 0) {
-            // Step 2️⃣: Get all rate entries for that effective date or null
+            // 3.2️⃣ Get all new rates for this name/type
             const [rateRows] = await db.query(
               `
-              SELECT fat, snf, price 
+              SELECT fat, snf, price
               FROM rate
-              WHERE organisation_id=? AND type=? 
-                AND name=? 
+              WHERE organisation_id=? AND type=? AND name=?
                 AND (effective_date=? OR effective_date IS NULL)
               `,
               [organisation_id, type, name, effective_date]
             );
 
-            // Step 3️⃣: For each collection in those unfinalized bills, update rate if matched
+            // 3.3️⃣ Loop through each bill and update its collections
             for (const bill of unfinalizedBills) {
+              // For every (fat,snf) pair, update matching collections
               for (const rateRow of rateRows) {
                 const { fat, snf, price } = rateRow;
 
-                const [affected] = await db.query(
+                const [updateRes] = await db.query(
                   `
                   UPDATE collections c
                   SET c.rate = ?
-                  WHERE c.dairy_id=? 
-                    AND c.farmer_id=? 
-                    AND c.type=? 
+                  WHERE c.dairy_id = ?
+                    AND c.farmer_id = ?
+                    AND c.type = ?
                     AND DATE(c.created_at) BETWEEN DATE(?) AND DATE(?)
-                    AND DATE(c.created_at) >= ?
-                    AND ROUND(c.fat,1)=?
-                    AND ROUND(c.snf,1)=?
+                    AND DATE(c.created_at) >= DATE(?)
+                    AND ROUND(c.fat, 1) = ?
+                    AND ROUND(c.snf, 1) = ?
                   `,
                   [
                     price,
@@ -378,41 +541,49 @@ const uploadRates = async (req, res) => {
                   ]
                 );
 
-                updatedCollections += affected.affectedRows || 0;
+                updatedCollections += updateRes.affectedRows || 0;
               }
-            }
 
-            // Step 4️⃣: Set rate = 0 for unmatched collections (same name/type/date window)
-            await db.query(
-              `
-              UPDATE collections c
-              LEFT JOIN bills b
-                ON c.dairy_id=b.dairy_id
-                AND c.farmer_id=b.farmer_id
-                AND DATE(c.created_at) BETWEEN DATE(b.period_start) AND DATE(b.period_end)
-              LEFT JOIN rate r
-                ON c.dairy_id=r.organisation_id
-                AND c.type=r.type
-                AND ROUND(c.fat,1)=r.fat
-                AND ROUND(c.snf,1)=r.snf
-                AND r.name=?
-                AND (r.effective_date=? OR r.effective_date IS NULL)
-              SET c.rate=0
-              WHERE c.dairy_id=? 
-                AND c.type=?
-                AND DATE(c.created_at)>=?
-                AND (b.is_finalized=0)
-                AND r.price IS NULL
-              `,
-              [name, effective_date, organisation_id, type, effective_date]
-            );
+              // 3.4️⃣ Set rate=0 for collections that didn’t match any new rate
+              const [zeroRes] = await db.query(
+                `
+                UPDATE collections c
+                LEFT JOIN rate r ON 
+                  c.dairy_id = r.organisation_id
+                  AND c.type = r.type
+                  AND ROUND(c.fat,1)=r.fat
+                  AND ROUND(c.snf,1)=r.snf
+                  AND r.name = ?
+                  AND (r.effective_date=? OR r.effective_date IS NULL)
+                WHERE c.dairy_id = ?
+                  AND c.farmer_id = ?
+                  AND c.type = ?
+                  AND DATE(c.created_at) BETWEEN DATE(?) AND DATE(?)
+                  AND DATE(c.created_at) >= DATE(?)
+                  AND r.price IS NULL
+                SET c.rate = 0
+                `,
+                [
+                  name,
+                  effective_date,
+                  organisation_id,
+                  bill.farmer_id,
+                  type,
+                  bill.period_start,
+                  bill.period_end,
+                  effective_date,
+                ]
+              );
+
+              updatedCollections += zeroRes.affectedRows || 0;
+            }
           }
         }
 
-        // ✅ Response
+        // ✅ 4️⃣ Final response
         res.json({
           success: true,
-          message: "Rates uploaded and collections updated successfully",
+          message: "Rates uploaded and previous collections updated successfully",
           inserted: results.length,
           updatedCollections,
           organisation_id,
@@ -423,12 +594,14 @@ const uploadRates = async (req, res) => {
       } catch (err) {
         console.error("Error processing rates:", err);
         res.status(500).json({
-          message: "Database error while applying new rates",
+          success: false,
+          message: "Database error while processing rates",
           error: err.message,
         });
       }
     });
 };
+
 
 
 

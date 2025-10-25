@@ -2584,23 +2584,76 @@ async function getCollectionBytab(req, res) {
 //   }
 // }
 
+// async function updateCollection(req, res) {
+//   const { id } = req.params;
+//   const { farmer_id, type, quantity, fat, snf, clr, rate, shift, date } = req.body;
+
+//   try {
+//     let istDate;
+
+//     if (date) {
+//       // If only date is passed (no time), append midnight
+//       if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+//         istDate = `${date} 00:00:00`;
+//       } else {
+//         // Keep given datetime as IST, no conversion
+//         istDate = date;
+//       }
+//     } else {
+//       // Current IST datetime
+//       const now = new Date();
+//       const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+//       const istOffset = 5.5 * 60 * 60 * 1000;
+//       const istNow = new Date(utc + istOffset);
+//       const pad = (n) => n.toString().padStart(2, "0");
+//       istDate = `${istNow.getFullYear()}-${pad(istNow.getMonth() + 1)}-${pad(
+//         istNow.getDate()
+//       )} ${pad(istNow.getHours())}:${pad(istNow.getMinutes())}:${pad(
+//         istNow.getSeconds()
+//       )}`;
+//     }
+
+//     const [result] = await db.execute(
+//       `UPDATE collections 
+//        SET farmer_id = ?, type = ?, quantity = ?, fat = ?, snf = ?, clr = ?, rate = ?, shift = ?, created_at = ?
+//        WHERE id = ?`,
+//       [farmer_id, type, quantity, fat, snf, clr, rate, shift, istDate, id]
+//     );
+
+//     if (result.affectedRows === 0) {
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "Collection not found or not updated" });
+//     }
+
+//     res.status(200).json({
+//       success: true,
+//       message: "Collection updated successfully",
+//       saved_datetime: istDate,
+//     });
+//   } catch (err) {
+//     console.error("Error updating collection:", err);
+//     res.status(500).json({ success: false, message: "Server error" });
+//   }
+// }
+
 async function updateCollection(req, res) {
   const { id } = req.params;
-  const { farmer_id, type, quantity, fat, snf, clr, rate, shift, date, amount } = req.body;
+  const { farmer_id, type, quantity, fat, snf, clr, rate, shift, date } = req.body;
 
   try {
+    // --- Calculate IST DateTime ---
     let istDate;
 
     if (date) {
-      // If only date is passed (no time), append midnight
+      // If only date passed, append midnight
       if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
         istDate = `${date} 00:00:00`;
       } else {
-        // Keep given datetime as IST, no conversion
-        istDate = date;
+        istDate = date; // assume frontend already sends full IST datetime
       }
     } else {
-      // Current IST datetime
+      // Convert to IST now
       const now = new Date();
       const utc = now.getTime() + now.getTimezoneOffset() * 60000;
       const istOffset = 5.5 * 60 * 60 * 1000;
@@ -2613,22 +2666,39 @@ async function updateCollection(req, res) {
       )}`;
     }
 
+    // --- Calculate amount ---
+    const amount = parseFloat(rate || 0) * parseFloat(quantity || 0);
+
+    // --- Update query ---
     const [result] = await db.execute(
       `UPDATE collections 
-       SET farmer_id = ?, type = ?, quantity = ?, fat = ?, snf = ?, clr = ?, rate = ?, shift = ?, created_at = ?, amount
+       SET farmer_id = ?, 
+           type = ?, 
+           quantity = ?, 
+           fat = ?, 
+           snf = ?, 
+           clr = ?, 
+           rate = ?, 
+           amount = ?, 
+           shift = ?, 
+           created_at = ?
        WHERE id = ?`,
-      [farmer_id, type, quantity, fat, snf, clr, rate, shift, istDate, amount, id]
+      [farmer_id, type, quantity, fat, snf, clr, rate, amount, shift, istDate, id]
     );
 
     if (result.affectedRows === 0) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Collection not found or not updated" });
+      return res.status(404).json({
+        success: false,
+        message: "Collection not found or not updated",
+      });
     }
 
+    // --- Response ---
     res.status(200).json({
       success: true,
       message: "Collection updated successfully",
+      id,
+      updated_amount: amount,
       saved_datetime: istDate,
     });
   } catch (err) {
@@ -2636,6 +2706,7 @@ async function updateCollection(req, res) {
     res.status(500).json({ success: false, message: "Server error" });
   }
 }
+
 
 
 

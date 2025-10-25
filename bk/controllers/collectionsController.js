@@ -5,53 +5,153 @@ const { Expo } = require('expo-server-sdk')
 let expo = new Expo();
 
 
+// async function createCollection(req, res) {
+//   const { farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, date } = req.body;
+
+//   try {
+//     // Use provided date OR default to now (IST)
+//     // let currentDate;
+//     // if (date) {
+//     //   currentDate = new Date(`${date}T00:00:00+05:30`);
+//     // } else {
+//     //   currentDate = new Date();
+//     // }
+
+//     // // Convert to IST formatted string
+//     // const istDateTime = currentDate.toLocaleString("en-US", {
+//     //   timeZone: "Asia/Kolkata",
+//     //   year: "numeric",
+//     //   month: "2-digit",
+//     //   day: "2-digit",
+//     //   hour: "2-digit",
+//     //   minute: "2-digit",
+//     //   second: "2-digit",
+//     //   hourCycle: "h23",
+//     // });
+
+//     // const [datePart, timePart] = istDateTime.split(", ");
+//     // const [month, day, year] = datePart.split("/");
+//     // const formattedIdtDateTime = `${year}-${month}-${day} ${timePart}`;
+
+//     // // 1️⃣ Insert collection
+//     // const [result] = await db.execute(
+//     //   `INSERT INTO collections 
+//     //    (farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, created_at)
+//     //    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+//     //   [farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, formattedIdtDateTime]
+//     // );
+
+//     let currentDate;
+
+//     if (date) {
+//       // If frontend sends full "YYYY-MM-DD HH:mm:ss"
+//       currentDate = new Date(date.replace(" ", "T") + "+05:30");
+//     } else {
+//       // Default to now
+//       currentDate = new Date();
+//     }
+
+//     // Format IST datetime → "YYYY-MM-DD HH:mm:ss"
+//     const istDateTime = currentDate.toLocaleString("en-US", {
+//       timeZone: "Asia/Kolkata",
+//       year: "numeric",
+//       month: "2-digit",
+//       day: "2-digit",
+//       hour: "2-digit",
+//       minute: "2-digit",
+//       second: "2-digit",
+//       hourCycle: "h23"
+//     });
+
+//     const [datePart, timePart] = istDateTime.split(", ");
+//     const [month, day, year] = datePart.split("/");
+//     const formattedIdtDateTime = `${year}-${month}-${day} ${timePart}`;
+
+//     const [result] = await db.execute(
+//       `INSERT INTO collections 
+//        (farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, created_at)
+//        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+//       [farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, formattedIdtDateTime]
+//     );
+
+//     // 2️⃣ Fetch farmer Expo token
+//     const [farmerRows] = await db.execute(
+//       `SELECT expo_token, username FROM users WHERE username = ? AND dairy_id = ?`,
+//       [farmer_id, dairy_id]
+//     );
+
+//     // const io = req.app.get("io");
+
+  
+
+//     if (farmerRows.length > 0) {
+//       // const { expo_token, username } = farmerRows[0];
+//       const expo_token = farmerRows[0].expo_token
+//       const username = farmerRows[0].username
+
+     
+
+//       let titlesocket = "Milk Collection Update";
+//       let message = `Dear ${username || 'Farmer'}, your ${type} milk collection of ${quantity}L has been recorded successfully.`;
+     
+      
+//        await db.execute(
+//         "INSERT INTO notifications (dairy_id, title, message, farmer_id) VALUES (?, ?, ?, ?)",
+//         [dairy_id, titlesocket, message, username]
+//       );
+
+
+//       if (expo_token && Expo.isExpoPushToken(expo_token)) {
+//         const messages = [{
+//           to: expo_token,
+//           sound: 'default',
+//           title: 'Milk Collection Update',
+//           body: `Dear ${username || 'Farmer'}, your ${type} milk collection of ${quantity}L has been recorded successfully.`,
+//           data: { type: 'collection', farmer_id, date: formattedIdtDateTime },
+//         }];
+
+//         // 3️⃣ Send Notification
+//         const chunks = expo.chunkPushNotifications(messages);
+//         for (const chunk of chunks) {
+//           try {
+//             await expo.sendPushNotificationsAsync(chunk);
+//           } catch (error) {
+//             console.error("Expo push error:", error);
+//           }
+//         }
+//       } else {
+//         console.log("Invalid or missing Expo token for farmer:", farmer_id);
+//       }
+//     }
+
+//     // ✅ Respond to client
+//     res.status(201).json({
+//       success: true,
+//       message: "Collection added and farmer notified",
+//       id: result.insertId,
+//       created_at: formattedIdtDateTime,
+//     });
+
+//   } catch (err) {
+//     console.error("Error creating collection:", err);
+//     res.status(500).json({ success: false, message: "Server error" });
+//   }
+// }
+
+
 async function createCollection(req, res) {
   const { farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, date } = req.body;
 
   try {
-    // Use provided date OR default to now (IST)
-    // let currentDate;
-    // if (date) {
-    //   currentDate = new Date(`${date}T00:00:00+05:30`);
-    // } else {
-    //   currentDate = new Date();
-    // }
-
-    // // Convert to IST formatted string
-    // const istDateTime = currentDate.toLocaleString("en-US", {
-    //   timeZone: "Asia/Kolkata",
-    //   year: "numeric",
-    //   month: "2-digit",
-    //   day: "2-digit",
-    //   hour: "2-digit",
-    //   minute: "2-digit",
-    //   second: "2-digit",
-    //   hourCycle: "h23",
-    // });
-
-    // const [datePart, timePart] = istDateTime.split(", ");
-    // const [month, day, year] = datePart.split("/");
-    // const formattedIdtDateTime = `${year}-${month}-${day} ${timePart}`;
-
-    // // 1️⃣ Insert collection
-    // const [result] = await db.execute(
-    //   `INSERT INTO collections 
-    //    (farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, created_at)
-    //    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    //   [farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, formattedIdtDateTime]
-    // );
-
+    // Convert date to IST (or use current time)
     let currentDate;
-
     if (date) {
-      // If frontend sends full "YYYY-MM-DD HH:mm:ss"
       currentDate = new Date(date.replace(" ", "T") + "+05:30");
     } else {
-      // Default to now
       currentDate = new Date();
     }
 
-    // Format IST datetime → "YYYY-MM-DD HH:mm:ss"
+    // Format to "YYYY-MM-DD HH:mm:ss" in IST
     const istDateTime = currentDate.toLocaleString("en-US", {
       timeZone: "Asia/Kolkata",
       year: "numeric",
@@ -67,50 +167,59 @@ async function createCollection(req, res) {
     const [month, day, year] = datePart.split("/");
     const formattedIdtDateTime = `${year}-${month}-${day} ${timePart}`;
 
+    // Calculate amount (rate * quantity)
+    const amount = parseFloat(rate) * parseFloat(quantity);
+
+    // 1️⃣ Insert collection
     const [result] = await db.execute(
       `INSERT INTO collections 
-       (farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, shift, formattedIdtDateTime]
+       (farmer_id, dairy_id, type, quantity, fat, snf, clr, rate, amount, shift, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        farmer_id,
+        dairy_id,
+        type,
+        quantity,
+        fat,
+        snf,
+        clr,
+        rate,
+        amount,
+        shift,
+        formattedIdtDateTime,
+      ]
     );
 
-    // 2️⃣ Fetch farmer Expo token
+    // 2️⃣ Fetch farmer expo token
     const [farmerRows] = await db.execute(
       `SELECT expo_token, username FROM users WHERE username = ? AND dairy_id = ?`,
       [farmer_id, dairy_id]
     );
 
-    // const io = req.app.get("io");
-
-  
-
     if (farmerRows.length > 0) {
-      // const { expo_token, username } = farmerRows[0];
-      const expo_token = farmerRows[0].expo_token
-      const username = farmerRows[0].username
+      const { expo_token, username } = farmerRows[0];
 
-     
+      const title = "Milk Collection Update";
+      const message = `Dear ${username || "Farmer"}, your ${type} milk collection of ${quantity}L has been recorded successfully.`;
 
-      let titlesocket = "Milk Collection Update";
-      let message = `Dear ${username || 'Farmer'}, your ${type} milk collection of ${quantity}L has been recorded successfully.`;
-     
-      
-       await db.execute(
+      // Insert notification
+      await db.execute(
         "INSERT INTO notifications (dairy_id, title, message, farmer_id) VALUES (?, ?, ?, ?)",
-        [dairy_id, titlesocket, message, username]
+        [dairy_id, title, message, username]
       );
 
-
+      // Send Expo notification
       if (expo_token && Expo.isExpoPushToken(expo_token)) {
-        const messages = [{
-          to: expo_token,
-          sound: 'default',
-          title: 'Milk Collection Update',
-          body: `Dear ${username || 'Farmer'}, your ${type} milk collection of ${quantity}L has been recorded successfully.`,
-          data: { type: 'collection', farmer_id, date: formattedIdtDateTime },
-        }];
+        const messages = [
+          {
+            to: expo_token,
+            sound: "default",
+            title: "Milk Collection Update",
+            body: message,
+            data: { type: "collection", farmer_id, date: formattedIdtDateTime },
+          },
+        ];
 
-        // 3️⃣ Send Notification
         const chunks = expo.chunkPushNotifications(messages);
         for (const chunk of chunks) {
           try {
@@ -129,6 +238,7 @@ async function createCollection(req, res) {
       success: true,
       message: "Collection added and farmer notified",
       id: result.insertId,
+      amount,
       created_at: formattedIdtDateTime,
     });
 

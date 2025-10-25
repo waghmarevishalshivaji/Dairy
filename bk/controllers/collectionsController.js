@@ -2586,7 +2586,7 @@ async function getCollectionBytab(req, res) {
 
 async function updateCollection(req, res) {
   const { id } = req.params;
-  const { farmer_id, type, quantity, fat, snf, clr, rate, shift, date } = req.body;
+  const { farmer_id, type, quantity, fat, snf, clr, rate, shift, date, amount } = req.body;
 
   try {
     let istDate;
@@ -2615,9 +2615,9 @@ async function updateCollection(req, res) {
 
     const [result] = await db.execute(
       `UPDATE collections 
-       SET farmer_id = ?, type = ?, quantity = ?, fat = ?, snf = ?, clr = ?, rate = ?, shift = ?, created_at = ?
+       SET farmer_id = ?, type = ?, quantity = ?, fat = ?, snf = ?, clr = ?, rate = ?, shift = ?, created_at = ?, amount
        WHERE id = ?`,
-      [farmer_id, type, quantity, fat, snf, clr, rate, shift, istDate, id]
+      [farmer_id, type, quantity, fat, snf, clr, rate, shift, istDate, amount, id]
     );
 
     if (result.affectedRows === 0) {

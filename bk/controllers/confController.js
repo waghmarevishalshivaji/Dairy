@@ -982,45 +982,100 @@ const uploadRates = async (req, res) => {
 
 
 
-const getRate = async (req, res) => {
-  const { fat, snf, orgid, name, type } = req.query;
+// const getRate = async (req, res) => {
+//   const { fat, snf, orgid, name, type, date } = req.query;
 
-  if (!fat || !snf) {
-    return res.status(400).json({ message: 'Missing fat or snf' });
+//   if (!fat || !snf) {
+//     return res.status(400).json({ message: 'Missing fat or snf' });
+//   }
+
+//   const fatFloat = parseFloat(fat);
+//   const snfFloat = parseFloat(snf);
+
+//   try {
+//     const [rows] = await db.query(
+//       `SELECT price 
+//        FROM rate 
+//        WHERE fat BETWEEN ? AND ? 
+//          AND snf BETWEEN ? AND ? 
+//          AND organisation_id = ?
+//          AND name = ?
+//          AND type = ?
+//        LIMIT 1`,
+//       [
+//         fatFloat - 0.01, fatFloat + 0.01,
+//         snfFloat - 0.01, snfFloat + 0.01,
+//         orgid,
+//         name,
+//         type
+//       ]
+//     );
+
+//     if (rows.length > 0) {
+//       res.json({ price: rows[0].price });
+//     } else {
+//       res.status(404).json({ message: 'No matching rate found' });
+//     }
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ message: 'Query failed' });
+//   }
+// };
+
+
+const getRate = async (req, res) => {
+  const { fat, snf, orgid, name, type, date } = req.query;
+
+  if (!fat || !snf || !date) {
+    return res.status(400).json({ message: "Missing fat, snf, or date" });
   }
 
   const fatFloat = parseFloat(fat);
   const snfFloat = parseFloat(snf);
+  const givenDate = new Date(date);
 
   try {
+    // 1️⃣ Fetch nearest matching rate
     const [rows] = await db.query(
-      `SELECT price 
+      `SELECT price, effective_date 
        FROM rate 
-       WHERE fat BETWEEN ? AND ? 
-         AND snf BETWEEN ? AND ? 
-         AND organisation_id = ?
+       WHERE organisation_id = ?
          AND name = ?
          AND type = ?
+         AND ROUND(fat,1) = ROUND(?,1)
+         AND ROUND(snf,1) = ROUND(?,1)
+       ORDER BY effective_date DESC
        LIMIT 1`,
-      [
-        fatFloat - 0.01, fatFloat + 0.01,
-        snfFloat - 0.01, snfFloat + 0.01,
-        orgid,
-        name,
-        type
-      ]
+      [orgid, name, type, fatFloat, snfFloat]
     );
 
-    if (rows.length > 0) {
-      res.json({ price: rows[0].price });
-    } else {
-      res.status(404).json({ message: 'No matching rate found' });
+    if (rows.length === 0) {
+      return res.status(404).json({ price: 0, message: "No matching rate found" });
     }
+
+    const rate = rows[0];
+    const effectiveDate = rate.effective_date ? new Date(rate.effective_date) : null;
+
+    // 2️⃣ If effective_date > givenDate → not yet effective
+    if (effectiveDate && effectiveDate > givenDate) {
+      return res.json({
+        price: 0,
+        message: `Rate not effective until ${effectiveDate.toISOString().split("T")[0]}`,
+      });
+    }
+
+    // 3️⃣ Return valid price
+    res.json({
+      price: rate.price,
+      effective_date: effectiveDate ? effectiveDate.toISOString().split("T")[0] : null,
+    });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Query failed' });
+    console.error("Error fetching rate:", err);
+    res.status(500).json({ message: "Query failed", error: err.message });
   }
 };
+
 
 
 const getRatename = async (req, res) => {

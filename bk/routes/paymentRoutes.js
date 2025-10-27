@@ -13,5 +13,7 @@ router.get('/getpaymentsbydairy', paymentController.getPaymentsByDairy);
 router.get('/getdairybillsummary', paymentController.getDairyBillSummary);
 router.get('/getfarmerbillsummary', paymentController.getDairyBillSummary);
 router.get('/getFarmerBillDetails', paymentController.getFarmerBillSummary);
+router.delete("/delete/:id", paymentController.deletePayment);
+
 
 module.exports = router;

@@ -193,6 +193,28 @@ async function activatePayment(req, res) {
 };
 
 
+async function deletePayment(req, res) {
+  const { id } = req.params;
+  try {
+    const [result] = await db.query(
+      `DELETE FROM farmer_payments WHERE id = ?`,
+      [id]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: "Payment not found" });
+    }
+    res.json({
+      success: true,
+      message: "Payment deleted successfully",
+      affected: result.affectedRows,
+    });
+  } catch (err) {
+    console.error("Error deleting payment:", err);
+    res.status(500).json({ message: "Deletion failed", error: err.message });
+  }
+}
+
+
 // Get collection by ID
 // async function getpayment(req, res) {
 //     let { farmer_id, datefrom, dateto, dairyid } = req.query;
@@ -3678,6 +3700,8 @@ async function getFarmerBillSummary(req, res) {
       });
     }
 
+    
+
     // --- COLLECTION TOTALS ---
     const [collections] = await db.execute(
       `
@@ -3818,6 +3842,13 @@ async function getFarmerBillDetails(req, res) {
       params.push(datefrom, dateto);
     }
 
+
+    let query1 = 'SELECT * FROM users WHERE username = ? AND dairy_id = ?';
+    const params1 = [farmer_id, dairyid];
+
+
+    const [rows1] = await db.execute(query1, params1);
+
     // collections
     const [collections] = await db.query(
       `SELECT id, date(created_at) as date, quantity, rate, (quantity*rate) as amount
@@ -3859,7 +3890,8 @@ async function getFarmerBillDetails(req, res) {
         total_feed: paymentBreakdown.feed?.amount_taken || 0,
         total_other: paymentBreakdown.other?.amount_taken || 0,
         total_received: payments.reduce((a, p) => a + Number(p.received || 0), 0),
-      }
+      },
+      rows1
     });
   } catch (err) {
     console.error("Error in getFarmerBillDetails:", err);
@@ -3979,5 +4011,6 @@ module.exports = {
     getDairyBillSummary,
     getFarmerBillDetails,
     updateFarmerBill,
-    getFarmerBillSummary
+    getFarmerBillSummary,
+    deletePayment
 };

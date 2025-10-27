@@ -10,129 +10,233 @@ let expo = new Expo();
 
 
 // POST /api/payments
-async function insertPayment(req, res) {  
+// async function insertPayment(req, res) {  
 
-    const allowedFields = [
-      'date',
-      'dairy_id',
-      'farmer_id',
-      'farmer_name',
-      'payment_type',
-      'amount_taken',
-      'received',
-      'descriptions'
-    ];
+//     const allowedFields = [
+//       'date',
+//       'dairy_id',
+//       'farmer_id',
+//       'farmer_name',
+//       'payment_type',
+//       'amount_taken',
+//       'received',
+//       'descriptions'
+//     ];
 
 
 
     
 
-    const requiredFields = ['date', 'dairy_id', 'farmer_id', 'payment_type'];
+//     const requiredFields = ['date', 'dairy_id', 'farmer_id', 'payment_type'];
 
-    // 1. Validate required fields
-    const missingFields = requiredFields.filter(field => !req.body[field] || req.body[field].toString().trim() === '');
-    if (missingFields.length > 0) {
-      return res.status(400).json({ message: `Missing required field(s): ${missingFields.join(', ')}` });
-    }
+//     // 1. Validate required fields
+//     const missingFields = requiredFields.filter(field => !req.body[field] || req.body[field].toString().trim() === '');
+//     if (missingFields.length > 0) {
+//       return res.status(400).json({ message: `Missing required field(s): ${missingFields.join(', ')}` });
+//     }
 
-    // 2. Filter fields to insert based on request
-    const fieldsToInsert = allowedFields.filter(field => req.body.hasOwnProperty(field));
-    const values = fieldsToInsert.map(field => req.body[field]);
+//     // 2. Filter fields to insert based on request
+//     const fieldsToInsert = allowedFields.filter(field => req.body.hasOwnProperty(field));
+//     const values = fieldsToInsert.map(field => req.body[field]);
 
-    // 3. Create placeholders and build query
-    const placeholders = fieldsToInsert.map(() => '?').join(', ');
-    const query = `INSERT INTO farmer_payments (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
-
-
-    const [farmerRows] = await db.execute(
-      `SELECT expo_token, username FROM users WHERE username = ? AND dairy_id = ?`,
-      [req.body['farmer_id'], req.body['dairy_id']]
-    );
-
-    console.log(farmerRows)
-    console.log(farmerRows[0].expo_token)
-
-    if (farmerRows.length > 0 ) {
-      // const { expo_token, username } = farmerRows[0];
-      const expo_token = farmerRows[0].expo_token
-      const username = farmerRows[0].username
+//     // 3. Create placeholders and build query
+//     const placeholders = fieldsToInsert.map(() => '?').join(', ');
+//     const query = `INSERT INTO farmer_payments (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
 
 
-      let currentDate;
+//     const [farmerRows] = await db.execute(
+//       `SELECT expo_token, username FROM users WHERE username = ? AND dairy_id = ?`,
+//       [req.body['farmer_id'], req.body['dairy_id']]
+//     );
 
-      // if (date) {
-      //   // If frontend sends full "YYYY-MM-DD HH:mm:ss"
-      //   currentDate = new Date(date.replace(" ", "T") + "+05:30");
-      // } else {
-      //   // Default to now
-      //   currentDate = new Date();
-      // }
-      currentDate = new Date();
+//     console.log(farmerRows)
+//     console.log(farmerRows[0].expo_token)
 
-       // Format IST datetime → "YYYY-MM-DD HH:mm:ss"
-      const istDateTime = currentDate.toLocaleString("en-US", {
-        timeZone: "Asia/Kolkata",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hourCycle: "h23"
-      });
+//     if (farmerRows.length > 0 ) {
+//       // const { expo_token, username } = farmerRows[0];
+//       const expo_token = farmerRows[0].expo_token
+//       const username = farmerRows[0].username
 
-      const [datePart, timePart] = istDateTime.split(", ");
-      const [month, day, year] = datePart.split("/");
-      const formattedIdtDateTime = `${year}-${month}-${day} ${timePart}`;
+
+//       let currentDate;
+
+//       // if (date) {
+//       //   // If frontend sends full "YYYY-MM-DD HH:mm:ss"
+//       //   currentDate = new Date(date.replace(" ", "T") + "+05:30");
+//       // } else {
+//       //   // Default to now
+//       //   currentDate = new Date();
+//       // }
+//       currentDate = new Date();
+
+//        // Format IST datetime → "YYYY-MM-DD HH:mm:ss"
+//       const istDateTime = currentDate.toLocaleString("en-US", {
+//         timeZone: "Asia/Kolkata",
+//         year: "numeric",
+//         month: "2-digit",
+//         day: "2-digit",
+//         hour: "2-digit",
+//         minute: "2-digit",
+//         second: "2-digit",
+//         hourCycle: "h23"
+//       });
+
+//       const [datePart, timePart] = istDateTime.split(", ");
+//       const [month, day, year] = datePart.split("/");
+//       const formattedIdtDateTime = `${year}-${month}-${day} ${timePart}`;
      
 
-      let titlesocket = "Payment Update";
-      let message = `Dear ${username || 'Farmer'}, your payment is updated.`;
+//       let titlesocket = "Payment Update";
+//       let message = `Dear ${username || 'Farmer'}, your payment is updated.`;
      
       
-       await db.execute(
-        "INSERT INTO notifications (dairy_id, title, message, farmer_id) VALUES (?, ?, ?, ?)",
-        [req.body['dairy_id'], titlesocket, message, username]
-      );
+//        await db.execute(
+//         "INSERT INTO notifications (dairy_id, title, message, farmer_id) VALUES (?, ?, ?, ?)",
+//         [req.body['dairy_id'], titlesocket, message, username]
+//       );
 
 
      
-    }
+//     }
 
-    try {
-      const [result] = await db.execute(query, values);
+//     try {
+//       const [result] = await db.execute(query, values);
 
-      if (farmerRows[0].expo_token && Expo.isExpoPushToken(expo_token)) {
-        const messages = [{
+//       if (farmerRows[0].expo_token && Expo.isExpoPushToken(expo_token)) {
+//         const messages = [{
+//           to: expo_token,
+//           sound: 'default',
+//           title: 'Milk Collection Update',
+//           body: `Dear ${username || 'Farmer'}, your ${req.body['payment_type']} payment is updated successfully.`,
+//           data: { type: 'payment', username, date: formattedIdtDateTime },
+//         }];
+
+//         // 3️⃣ Send Notification
+//         const chunks = expo.chunkPushNotifications(messages);
+//         for (const chunk of chunks) {
+//           try {
+//             await expo.sendPushNotificationsAsync(chunk);
+//           } catch (error) {
+//             res.status(200).json({ success: true, message: 'Payment record added successfully', id: result.insertId });
+//             // console.error("Expo push error:", error);
+//           }
+//         }
+//       } else {
+//         // console.log("Invalid or missing Expo token for farmer:");
+//          res.status(200).json({ success: true, message: 'Payment record added successfully', id: result.insertId });
+//       }
+
+//       res.status(200).json({ success: true, message: 'Payment record added successfully', id: result.insertId });
+//     } catch (error) {
+//       console.error('Error inserting payment:', error);
+//       res.status(500).json({ success: false, message: 'Server error' });
+//     }
+
+// }
+
+async function insertPayment(req, res) {
+  const allowedFields = [
+    'date',
+    'dairy_id',
+    'farmer_id',
+    'farmer_name',
+    'payment_type',
+    'amount_taken',
+    'received',
+    'descriptions'
+  ];
+
+  const requiredFields = ['date', 'dairy_id', 'farmer_id', 'payment_type'];
+
+  // 1️⃣ Validate required fields
+  const missingFields = requiredFields.filter(
+    field => !req.body[field] || req.body[field].toString().trim() === ''
+  );
+  if (missingFields.length > 0) {
+    return res.status(400).json({
+      message: `Missing required field(s): ${missingFields.join(', ')}`
+    });
+  }
+
+  // 2️⃣ Filter fields to insert
+  const fieldsToInsert = allowedFields.filter(field => req.body.hasOwnProperty(field));
+  const values = fieldsToInsert.map(field => req.body[field]);
+  const placeholders = fieldsToInsert.map(() => '?').join(', ');
+  const query = `INSERT INTO farmer_payments (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
+
+  // 3️⃣ Get farmer expo token
+  const [farmerRows] = await db.execute(
+    `SELECT expo_token, username FROM users WHERE username = ? AND dairy_id = ?`,
+    [req.body.farmer_id, req.body.dairy_id]
+  );
+
+  // Optional — get safe defaults
+  const farmer = farmerRows[0] || {};
+  const expo_token = farmer.expo_token || null;
+  const username = farmer.username || req.body.farmer_id;
+
+  // 4️⃣ Create notification entry regardless of Expo
+  const now = new Date();
+  const istDateTime = now.toLocaleString('en-US', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23'
+  });
+  const [datePart, timePart] = istDateTime.split(', ');
+  const [month, day, year] = datePart.split('/');
+  const formattedIdtDateTime = `${year}-${month}-${day} ${timePart}`;
+
+  const title = 'Payment Update';
+  const message = `Dear ${username || 'Farmer'}, your payment is updated.`;
+
+  await db.execute(
+    'INSERT INTO notifications (dairy_id, title, message, farmer_id) VALUES (?, ?, ?, ?)',
+    [req.body.dairy_id, title, message, username]
+  );
+
+  try {
+    // 5️⃣ Insert payment record
+    const [result] = await db.execute(query, values);
+
+    // 6️⃣ Only send push notification if token exists and valid
+    if (expo_token && Expo.isExpoPushToken(expo_token)) {
+      const messages = [
+        {
           to: expo_token,
           sound: 'default',
-          title: 'Milk Collection Update',
-          body: `Dear ${username || 'Farmer'}, your ${req.body['payment_type']} payment is updated successfully.`,
-          data: { type: 'payment', username, date: formattedIdtDateTime },
-        }];
-
-        // 3️⃣ Send Notification
-        const chunks = expo.chunkPushNotifications(messages);
-        for (const chunk of chunks) {
-          try {
-            await expo.sendPushNotificationsAsync(chunk);
-          } catch (error) {
-            res.status(200).json({ success: true, message: 'Payment record added successfully', id: result.insertId });
-            // console.error("Expo push error:", error);
-          }
+          title: 'Payment Update',
+          body: `Dear ${username || 'Farmer'}, your ${req.body.payment_type} payment is updated successfully.`,
+          data: { type: 'payment', username, date: formattedIdtDateTime }
         }
-      } else {
-        // console.log("Invalid or missing Expo token for farmer:");
-         res.status(200).json({ success: true, message: 'Payment record added successfully', id: result.insertId });
-      }
+      ];
 
-      res.status(200).json({ success: true, message: 'Payment record added successfully', id: result.insertId });
-    } catch (error) {
-      console.error('Error inserting payment:', error);
-      res.status(500).json({ success: false, message: 'Server error' });
+      const chunks = expo.chunkPushNotifications(messages);
+      for (const chunk of chunks) {
+        try {
+          await expo.sendPushNotificationsAsync(chunk);
+        } catch (error) {
+          console.error('Expo push error:', error);
+        }
+      }
     }
 
+    // ✅ Response to client
+    res.status(200).json({
+      success: true,
+      message: 'Payment record added successfully',
+      id: result.insertId
+    });
+  } catch (error) {
+    console.error('Error inserting payment:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
 }
+
 
 
 // PUT /api/payments/:id

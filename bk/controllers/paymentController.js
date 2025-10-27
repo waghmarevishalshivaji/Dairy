@@ -193,26 +193,87 @@ async function activatePayment(req, res) {
 };
 
 
+// async function deletePayment(req, res) {
+//   const { id } = req.params;
+//   try {
+//     const [result] = await db.query(
+//       `DELETE FROM farmer_payments WHERE id = ?`,
+//       [id]
+//     );
+//     if (result.affectedRows === 0) {
+//       return res.status(404).json({ success: false, message: "Payment not found" });
+//     }
+//     res.json({
+//       success: true,
+//       message: "Payment deleted successfully",
+//       affected: result.affectedRows,
+//     });
+//   } catch (err) {
+//     console.error("Error deleting payment:", err);
+//     res.status(500).json({ message: "Deletion failed", error: err.message });
+//   }
+// }
+
+// 🔴 Permanently delete a payment record (only if no bill generated)
 async function deletePayment(req, res) {
   const { id } = req.params;
+
   try {
-    const [result] = await db.query(
-      `DELETE FROM farmer_payments WHERE id = ?`,
+    // 1️⃣ Get payment info first
+    const [paymentRows] = await db.query(
+      `SELECT farmer_id, dairy_id, DATE(date) AS payment_date 
+       FROM farmer_payments 
+       WHERE id = ?`,
       [id]
     );
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ success: false, message: "Payment not found" });
+
+    if (paymentRows.length === 0) {
+      return res.status(404).json({ message: "No payment found with given ID" });
     }
+
+    const { farmer_id, dairy_id, payment_date } = paymentRows[0];
+
+    // 2️⃣ Check if this payment date falls inside any bill period for same farmer/dairy
+    const [billRows] = await db.query(
+      `SELECT id, period_start, period_end, is_finalized
+       FROM bills
+       WHERE dairy_id = ? 
+         AND farmer_id = ?
+         AND DATE(?) BETWEEN DATE(period_start) AND DATE(period_end)`,
+      [dairy_id, farmer_id, payment_date]
+    );
+
+    if (billRows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot delete payment. It is linked to a generated bill.",
+        linked_bill: billRows.map(b => ({
+          id: b.id,
+          period_start: b.period_start,
+          period_end: b.period_end,
+          is_finalized: b.is_finalized
+        }))
+      });
+    }
+
+    // 3️⃣ If safe → delete the payment
+    const [result] = await db.query(`DELETE FROM farmer_payments WHERE id = ?`, [id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Payment not found or already deleted" });
+    }
+
     res.json({
       success: true,
-      message: "Payment deleted successfully",
-      affected: result.affectedRows,
+      message: "Payment record deleted successfully",
+      affected: result.affectedRows
     });
   } catch (err) {
     console.error("Error deleting payment:", err);
-    res.status(500).json({ message: "Deletion failed", error: err.message });
+    res.status(500).json({ message: "Delete failed", error: err.message });
   }
 }
+
 
 
 // Get collection by ID

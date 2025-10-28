@@ -2184,6 +2184,209 @@ function isShiftInRange(startDate, startShift, endDate, endShift, rowDate, rowSh
 //   }
 // }
 
+// async function getDailyShiftReport(req, res) {
+//   try {
+//     const { dairyid, startDate, startShift, endDate, endShift, milkType } = req.query;
+//     if (!dairyid || !startDate || !startShift || !endDate || !endShift) {
+//       return res.status(400).json({
+//         message: "dairyid, startDate, startShift, endDate, endShift required",
+//       });
+//     }
+
+//     const params = [dairyid, dairyid];
+//     let where = `c.dairy_id = ? AND u.dairy_id = ?`;
+//     let shiftCondition = "";
+//     let dateConditions = [];
+
+//     // 🕓 SAME DATE
+//     if (startDate === endDate) {
+//       if (startShift === "Morning" && endShift === "Morning") {
+//         shiftCondition = `AND c.shift = 'Morning'`;
+//         dateConditions.push(`DATE(c.created_at) = '${startDate}'`);
+//       } else if (startShift === "Evening" && endShift === "Evening") {
+//         shiftCondition = `AND c.shift = 'Evening'`;
+//         dateConditions.push(`DATE(c.created_at) = '${startDate}'`);
+//       } else {
+//         dateConditions.push(`DATE(c.created_at) = '${startDate}'`);
+//       }
+//     }
+
+//     // 🕓 CROSS-DAY (Evening → Morning)
+//     else if (startShift === "Evening" && endShift === "Morning") {
+//       dateConditions.push(`(
+//         (DATE(c.created_at) = '${startDate}' AND c.shift = 'Evening')
+//         OR
+//         (DATE(c.created_at) = '${endDate}' AND c.shift = 'Morning')
+//       )`);
+//     }
+
+//     // 🕓 NORMAL RANGE
+//     else {
+//       const startDateTime =
+//         startShift === "Evening" ? `${startDate} 12:00:00` : `${startDate} 00:00:00`;
+//       const endDateTime =
+//         endShift === "Morning" ? `${endDate} 11:59:59` : `${endDate} 23:59:59`;
+//       dateConditions.push(`c.created_at BETWEEN '${startDateTime}' AND '${endDateTime}'`);
+//     }
+
+//     // 🐮 Milk Type Filter
+//     if (milkType && milkType !== "All") {
+//       where += ` AND c.type = ?`;
+//       params.push(milkType);
+//     }
+
+//     // ---- Collection Farmer-Wise Query ----
+//     where += ` AND (${dateConditions.join(" OR ")}) ${shiftCondition}`;
+//     const [collections] = await db.query(
+//       `SELECT 
+//           c.farmer_id, u.fullName AS farmer_name,
+//           SUM(c.quantity) AS total_liters,
+//           ROUND(AVG(c.fat),1) AS avg_fat,
+//           ROUND(AVG(c.snf),1) AS avg_snf,
+//           ROUND(AVG(c.clr),1) AS avg_clr,
+//           ROUND(AVG(c.rate),1) AS avg_rate,
+//           SUM(c.quantity * c.rate) AS total_amount
+//        FROM collections c
+//        JOIN users u ON u.username = c.farmer_id
+//        WHERE ${where}
+//        GROUP BY c.farmer_id, u.fullName
+//        ORDER BY u.fullName ASC`,
+//       params
+//     );
+
+//     // ---- Fetch Farmer-Wise Bill Summary ----
+//     const [billSummary] = await db.query(
+//       `
+//       SELECT
+//         farmer_id,
+//         SUM(milk_total) AS milk_total,
+//         SUM(received_total) AS received_total,
+//         SUM(net_payable) AS net_payable,
+//         SUM(advance_total) AS advance,
+//         SUM(cattlefeed_total) AS cattle_feed,
+//         SUM(other1_total) AS other1,
+//         SUM(other2_total) AS other2,
+//         SUM(advance_remaining) AS advance_remaining,
+//         SUM(cattlefeed_remaining) AS cattlefeed_remaining,
+//         SUM(other1_remaining) AS other1_remaining,
+//         SUM(other2_remaining) AS other2_remaining
+//       FROM bills
+//       WHERE dairy_id = ?
+//         AND DATE(period_start) BETWEEN ? AND ?
+//       GROUP BY farmer_id
+//       `,
+//       [dairyid, startDate, endDate]
+//     );
+
+//     // ---- Merge Both Farmer-Wise ----
+//     const farmerMap = {};
+
+//     // Add collections first
+//     for (const row of collections) {
+//       farmerMap[row.farmer_id] = {
+//         farmer_id: row.farmer_id,
+//         farmer_name: row.farmer_name,
+//         milk_data: {
+//           total_liters: +row.total_liters || 0,
+//           avg_fat: +row.avg_fat || 0,
+//           avg_snf: +row.avg_snf || 0,
+//           avg_clr: +row.avg_clr || 0,
+//           avg_rate: +row.avg_rate || 0,
+//           total_amount: +row.total_amount || 0,
+//         },
+//         bill_data: {
+//           milk_total: 0,
+//           received_total: 0,
+//           net_payable: 0,
+//           deductions: { advance: 0, cattle_feed: 0, other1: 0, other2: 0 },
+//           remaining: {
+//             advance_remaining: 0,
+//             cattlefeed_remaining: 0,
+//             other1_remaining: 0,
+//             other2_remaining: 0,
+//           },
+//         },
+//       };
+//     }
+
+//     // Merge bills data into same map
+//     for (const b of billSummary) {
+//       if (!farmerMap[b.farmer_id]) {
+//         farmerMap[b.farmer_id] = {
+//           farmer_id: b.farmer_id,
+//           farmer_name: "-",
+//           milk_data: {
+//             total_liters: 0,
+//             avg_fat: 0,
+//             avg_snf: 0,
+//             avg_clr: 0,
+//             avg_rate: 0,
+//             total_amount: 0,
+//           },
+//           bill_data: {
+//             milk_total: +b.milk_total || 0,
+//             received_total: +b.received_total || 0,
+//             net_payable: +b.net_payable || 0,
+//             deductions: {
+//               advance: +b.advance || 0,
+//               cattle_feed: +b.cattle_feed || 0,
+//               other1: +b.other1 || 0,
+//               other2: +b.other2 || 0,
+//             },
+//             remaining: {
+//               advance_remaining: +b.advance_remaining || 0,
+//               cattlefeed_remaining: +b.cattlefeed_remaining || 0,
+//               other1_remaining: +b.other1_remaining || 0,
+//               other2_remaining: +b.other2_remaining || 0,
+//             },
+//           },
+//         };
+//       } else {
+//         farmerMap[b.farmer_id].bill_data = {
+//           milk_total: +b.milk_total || 0,
+//           received_total: +b.received_total || 0,
+//           net_payable: +b.net_payable || 0,
+//           deductions: {
+//             advance: +b.advance || 0,
+//             cattle_feed: +b.cattle_feed || 0,
+//             other1: +b.other1 || 0,
+//             other2: +b.other2 || 0,
+//           },
+//           remaining: {
+//             advance_remaining: +b.advance_remaining || 0,
+//             cattlefeed_remaining: +b.cattlefeed_remaining || 0,
+//             other1_remaining: +b.other1_remaining || 0,
+//             other2_remaining: +b.other2_remaining || 0,
+//           },
+//         };
+//       }
+//     }
+
+//     const report = Object.values(farmerMap);
+
+//     // ---- Overall Dairy Totals ----
+//     const totalLiters = report.reduce((s, r) => s + (r.milk_data.total_liters || 0), 0);
+//     const totalAmount = report.reduce((s, r) => s + (r.milk_data.total_amount || 0), 0);
+
+//     res.json({
+//       success: true,
+//       dairy_id: dairyid,
+//       period: { startDate, startShift, endDate, endShift },
+//       type: milkType || "All",
+//       summary: {
+//         total_farmers: report.length,
+//         total_liters: totalLiters,
+//         total_amount: totalAmount,
+//       },
+//       report,
+//     });
+//   } catch (err) {
+//     console.error("Error generating farmer-wise shift report:", err);
+//     res.status(500).json({ message: "Server error", error: err.message });
+//   }
+// }
+
+
 async function getDailyShiftReport(req, res) {
   try {
     const { dairyid, startDate, startShift, endDate, endShift, milkType } = req.query;
@@ -2235,37 +2438,55 @@ async function getDailyShiftReport(req, res) {
       params.push(milkType);
     }
 
-    // ---- Collection Farmer-Wise Query ----
+    // ---- COLLECTION SUMMARY ----
     where += ` AND (${dateConditions.join(" OR ")}) ${shiftCondition}`;
-    const [collections] = await db.query(
+    const [rows] = await db.query(
       `SELECT 
+          DATE(c.created_at) AS date,
+          c.shift, c.type,
           c.farmer_id, u.fullName AS farmer_name,
-          SUM(c.quantity) AS total_liters,
-          ROUND(AVG(c.fat),1) AS avg_fat,
-          ROUND(AVG(c.snf),1) AS avg_snf,
-          ROUND(AVG(c.clr),1) AS avg_clr,
-          ROUND(AVG(c.rate),1) AS avg_rate,
-          SUM(c.quantity * c.rate) AS total_amount
+          SUM(c.quantity) AS liters,
+          ROUND(AVG(c.fat),1) AS fat,
+          ROUND(AVG(c.snf),1) AS snf,
+          ROUND(AVG(c.clr),1) AS clr,
+          ROUND(AVG(c.rate),1) AS rate,
+          SUM(c.quantity * c.rate) AS amount
        FROM collections c
        JOIN users u ON u.username = c.farmer_id
        WHERE ${where}
-       GROUP BY c.farmer_id, u.fullName
-       ORDER BY u.fullName ASC`,
+       GROUP BY DATE(c.created_at), c.shift, c.type, c.farmer_id, u.fullName
+       ORDER BY DATE(c.created_at), FIELD(c.shift,'Morning','Evening'), c.farmer_id`,
       params
     );
 
-    // ---- Fetch Farmer-Wise Bill Summary ----
-    const [billSummary] = await db.query(
+    // ---- SUMMARY TOTALS ----
+    const avgFat =
+      rows.length > 0
+        ? (rows.reduce((s, r) => s + (Number(r.fat) || 0), 0) / rows.length).toFixed(2)
+        : 0;
+    const avgSnf =
+      rows.length > 0
+        ? (rows.reduce((s, r) => s + (Number(r.snf) || 0), 0) / rows.length).toFixed(2)
+        : 0;
+    const avgClr =
+      rows.length > 0
+        ? (rows.reduce((s, r) => s + (Number(r.clr) || 0), 0) / rows.length).toFixed(2)
+        : 0;
+    const totalLiters = rows.reduce((s, r) => s + (Number(r.liters) || 0), 0);
+    const totalAmount = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+
+    // ---- FARMERWISE BILL SUMMARY ----
+    const [farmerBills] = await db.query(
       `
       SELECT
         farmer_id,
         SUM(milk_total) AS milk_total,
         SUM(received_total) AS received_total,
         SUM(net_payable) AS net_payable,
-        SUM(advance_total) AS advance,
-        SUM(cattlefeed_total) AS cattle_feed,
-        SUM(other1_total) AS other1,
-        SUM(other2_total) AS other2,
+        SUM(advance_total) AS advance_total,
+        SUM(cattlefeed_total) AS cattlefeed_total,
+        SUM(other1_total) AS other1_total,
+        SUM(other2_total) AS other2_total,
         SUM(advance_remaining) AS advance_remaining,
         SUM(cattlefeed_remaining) AS cattlefeed_remaining,
         SUM(other1_remaining) AS other1_remaining,
@@ -2274,114 +2495,56 @@ async function getDailyShiftReport(req, res) {
       WHERE dairy_id = ?
         AND DATE(period_start) BETWEEN ? AND ?
       GROUP BY farmer_id
+      ORDER BY farmer_id ASC
       `,
       [dairyid, startDate, endDate]
     );
 
-    // ---- Merge Both Farmer-Wise ----
-    const farmerMap = {};
+    // ---- JOIN FARMER NAMES ----
+    const [farmerNames] = await db.query(
+      `SELECT username AS farmer_id, fullName AS farmer_name FROM users WHERE dairy_id = ?`,
+      [dairyid]
+    );
 
-    // Add collections first
-    for (const row of collections) {
-      farmerMap[row.farmer_id] = {
-        farmer_id: row.farmer_id,
-        farmer_name: row.farmer_name,
-        milk_data: {
-          total_liters: +row.total_liters || 0,
-          avg_fat: +row.avg_fat || 0,
-          avg_snf: +row.avg_snf || 0,
-          avg_clr: +row.avg_clr || 0,
-          avg_rate: +row.avg_rate || 0,
-          total_amount: +row.total_amount || 0,
-        },
-        bill_data: {
-          milk_total: 0,
-          received_total: 0,
-          net_payable: 0,
-          deductions: { advance: 0, cattle_feed: 0, other1: 0, other2: 0 },
-          remaining: {
-            advance_remaining: 0,
-            cattlefeed_remaining: 0,
-            other1_remaining: 0,
-            other2_remaining: 0,
-          },
-        },
-      };
-    }
+    const farmerMap = Object.fromEntries(farmerNames.map(f => [f.farmer_id, f.farmer_name]));
+    const farmerwise_bills = farmerBills.map(b => ({
+      farmer_id: b.farmer_id,
+      farmer_name: farmerMap[b.farmer_id] || "-",
+      milk_total: +b.milk_total || 0,
+      received_total: +b.received_total || 0,
+      net_payable: +b.net_payable || 0,
+      deductions: {
+        advance: +b.advance_total || 0,
+        cattle_feed: +b.cattlefeed_total || 0,
+        other1: +b.other1_total || 0,
+        other2: +b.other2_total || 0,
+      },
+      remaining: {
+        advance_remaining: +b.advance_remaining || 0,
+        cattlefeed_remaining: +b.cattlefeed_remaining || 0,
+        other1_remaining: +b.other1_remaining || 0,
+        other2_remaining: +b.other2_remaining || 0,
+      },
+    }));
 
-    // Merge bills data into same map
-    for (const b of billSummary) {
-      if (!farmerMap[b.farmer_id]) {
-        farmerMap[b.farmer_id] = {
-          farmer_id: b.farmer_id,
-          farmer_name: "-",
-          milk_data: {
-            total_liters: 0,
-            avg_fat: 0,
-            avg_snf: 0,
-            avg_clr: 0,
-            avg_rate: 0,
-            total_amount: 0,
-          },
-          bill_data: {
-            milk_total: +b.milk_total || 0,
-            received_total: +b.received_total || 0,
-            net_payable: +b.net_payable || 0,
-            deductions: {
-              advance: +b.advance || 0,
-              cattle_feed: +b.cattle_feed || 0,
-              other1: +b.other1 || 0,
-              other2: +b.other2 || 0,
-            },
-            remaining: {
-              advance_remaining: +b.advance_remaining || 0,
-              cattlefeed_remaining: +b.cattlefeed_remaining || 0,
-              other1_remaining: +b.other1_remaining || 0,
-              other2_remaining: +b.other2_remaining || 0,
-            },
-          },
-        };
-      } else {
-        farmerMap[b.farmer_id].bill_data = {
-          milk_total: +b.milk_total || 0,
-          received_total: +b.received_total || 0,
-          net_payable: +b.net_payable || 0,
-          deductions: {
-            advance: +b.advance || 0,
-            cattle_feed: +b.cattle_feed || 0,
-            other1: +b.other1 || 0,
-            other2: +b.other2 || 0,
-          },
-          remaining: {
-            advance_remaining: +b.advance_remaining || 0,
-            cattlefeed_remaining: +b.cattlefeed_remaining || 0,
-            other1_remaining: +b.other1_remaining || 0,
-            other2_remaining: +b.other2_remaining || 0,
-          },
-        };
-      }
-    }
-
-    const report = Object.values(farmerMap);
-
-    // ---- Overall Dairy Totals ----
-    const totalLiters = report.reduce((s, r) => s + (r.milk_data.total_liters || 0), 0);
-    const totalAmount = report.reduce((s, r) => s + (r.milk_data.total_amount || 0), 0);
-
+    // ---- RESPONSE ----
     res.json({
       success: true,
       dairy_id: dairyid,
       period: { startDate, startShift, endDate, endShift },
       type: milkType || "All",
       summary: {
-        total_farmers: report.length,
-        total_liters: totalLiters,
-        total_amount: totalAmount,
+        avg_fat: Number(avgFat),
+        avg_snf: Number(avgSnf),
+        avg_clr: Number(avgClr),
+        total_liters: Number(totalLiters),
+        total_amount: Number(totalAmount),
       },
-      report,
+      report: rows,
+      farmerwise_bills, // 👈 new separate object added
     });
   } catch (err) {
-    console.error("Error generating farmer-wise shift report:", err);
+    console.error("Error generating daily shift report:", err);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 }

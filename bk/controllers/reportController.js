@@ -1914,6 +1914,136 @@ function isShiftInRange(startDate, startShift, endDate, endShift, rowDate, rowSh
 //   }
 // }
 
+// async function getDailyShiftReport(req, res) {
+//   try {
+//     const { dairyid, startDate, startShift, endDate, endShift, milkType } = req.query;
+//     if (!dairyid || !startDate || !startShift || !endDate || !endShift) {
+//       return res.status(400).json({
+//         message: "dairyid, startDate, startShift, endDate, endShift required",
+//       });
+//     }
+
+//     const params = [dairyid, dairyid];
+//     let where = `c.dairy_id = ? AND u.dairy_id = ?`;
+//     let shiftCondition = "";
+//     let dateConditions = [];
+
+//     // 🕓 SAME DATE
+//     if (startDate === endDate) {
+//       if (startShift === "Morning" && endShift === "Morning") {
+//         shiftCondition = `AND c.shift = 'Morning'`;
+//         dateConditions.push(`DATE(c.created_at) = '${startDate}'`);
+//       } else if (startShift === "Evening" && endShift === "Evening") {
+//         shiftCondition = `AND c.shift = 'Evening'`;
+//         dateConditions.push(`DATE(c.created_at) = '${startDate}'`);
+//       } else {
+//         dateConditions.push(`DATE(c.created_at) = '${startDate}'`);
+//       }
+//     }
+
+//     // 🕓 CROSS-DAY CASE (Evening → Morning)
+//     else if (startShift === "Evening" && endShift === "Morning") {
+//       dateConditions.push(`(
+//         (DATE(c.created_at) = '${startDate}' AND c.shift = 'Evening')
+//         OR
+//         (DATE(c.created_at) = '${endDate}' AND c.shift = 'Morning')
+//       )`);
+//     }
+
+//     // 🕓 NORMAL RANGE
+//     else {
+//       const startDateTime =
+//         startShift === "Evening" ? `${startDate} 12:00:00` : `${startDate} 00:00:00`;
+//       const endDateTime =
+//         endShift === "Morning" ? `${endDate} 11:59:59` : `${endDate} 23:59:59`;
+//       dateConditions.push(`c.created_at BETWEEN '${startDateTime}' AND '${endDateTime}'`);
+//     }
+
+//     // 🐮 Milk Type filter
+//     if (milkType && milkType !== "All") {
+//       where += ` AND c.type = ?`;
+//       params.push(milkType);
+//     }
+
+//     // ---- Collection Query ----
+//     where += ` AND (${dateConditions.join(" OR ")}) ${shiftCondition}`;
+//     const [rows] = await db.query(
+//       `SELECT 
+//           DATE(c.created_at) AS date,
+//           c.shift, c.type,
+//           c.farmer_id, u.fullName AS farmer_name,
+//           SUM(c.quantity) AS liters,
+//           ROUND(AVG(c.fat),1) AS fat,
+//           ROUND(AVG(c.snf),1) AS snf,
+//           ROUND(AVG(c.clr),1) AS clr,
+//           ROUND(AVG(c.rate),1) AS rate,
+//           SUM(c.quantity * c.rate) AS amount
+//        FROM collections c
+//        JOIN users u ON u.username = c.farmer_id
+//        WHERE ${where}
+//        GROUP BY DATE(c.created_at), c.shift, c.type, c.farmer_id, u.fullName
+//        ORDER BY DATE(c.created_at), FIELD(c.shift,'Morning','Evening'), c.farmer_id`,
+//       params
+//     );
+
+//     // ---- Aggregations ----
+//     const avgFat =
+//       rows.length > 0
+//         ? (rows.reduce((s, r) => s + (Number(r.fat) || 0), 0) / rows.length).toFixed(2)
+//         : 0;
+//     const avgSnf =
+//       rows.length > 0
+//         ? (rows.reduce((s, r) => s + (Number(r.snf) || 0), 0) / rows.length).toFixed(2)
+//         : 0;
+//     const avgClr =
+//       rows.length > 0
+//         ? (rows.reduce((s, r) => s + (Number(r.clr) || 0), 0) / rows.length).toFixed(2)
+//         : 0;
+//     const totalLiters = rows.reduce((s, r) => s + (Number(r.liters) || 0), 0);
+//     const totalAmount = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+
+//     // ---- NEW: DEDUCTIONS SUMMARY ----
+//     const [deductions] = await db.query(
+//       `
+//       SELECT
+//         SUM(CASE WHEN payment_type = 'advance' THEN amount_taken ELSE 0 END) AS advance,
+//         SUM(CASE WHEN payment_type = 'cattle feed' THEN amount_taken ELSE 0 END) AS cattle_feed,
+//         SUM(CASE WHEN payment_type = 'Other1' THEN amount_taken ELSE 0 END) AS other1,
+//         SUM(CASE WHEN payment_type = 'Other2' THEN amount_taken ELSE 0 END) AS other2
+//       FROM farmer_payments
+//       WHERE dairy_id = ?
+//         AND DATE(date) BETWEEN ? AND ?
+//       `,
+//       [dairyid, startDate, endDate]
+//     );
+
+//     // ---- Response ----
+//     res.json({
+//       success: true,
+//       dairy_id: dairyid,
+//       period: { startDate, startShift, endDate, endShift },
+//       type: milkType || "All",
+//       summary: {
+//         avg_fat: Number(avgFat),
+//         avg_snf: Number(avgSnf),
+//         avg_clr: Number(avgClr),
+//         total_liters: Number(totalLiters),
+//         total_amount: Number(totalAmount),
+//         deductions: {
+//           advance: +deductions[0].advance || 0,
+//           cattle_feed: +deductions[0].cattle_feed || 0,
+//           other1: +deductions[0].other1 || 0,
+//           other2: +deductions[0].other2 || 0
+//         }
+//       },
+//       report: rows
+//     });
+//   } catch (err) {
+//     console.error("Error generating daily shift report:", err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// }
+
 async function getDailyShiftReport(req, res) {
   try {
     const { dairyid, startDate, startShift, endDate, endShift, milkType } = req.query;
@@ -1941,7 +2071,7 @@ async function getDailyShiftReport(req, res) {
       }
     }
 
-    // 🕓 CROSS-DAY CASE (Evening → Morning)
+    // 🕓 CROSS-DAY (Evening → Morning)
     else if (startShift === "Evening" && endShift === "Morning") {
       dateConditions.push(`(
         (DATE(c.created_at) = '${startDate}' AND c.shift = 'Evening')
@@ -1959,7 +2089,7 @@ async function getDailyShiftReport(req, res) {
       dateConditions.push(`c.created_at BETWEEN '${startDateTime}' AND '${endDateTime}'`);
     }
 
-    // 🐮 Milk Type filter
+    // 🐮 Milk Type Filter
     if (milkType && milkType !== "All") {
       where += ` AND c.type = ?`;
       params.push(milkType);
@@ -1986,7 +2116,7 @@ async function getDailyShiftReport(req, res) {
       params
     );
 
-    // ---- Aggregations ----
+    // ---- Compute Averages & Totals ----
     const avgFat =
       rows.length > 0
         ? (rows.reduce((s, r) => s + (Number(r.fat) || 0), 0) / rows.length).toFixed(2)
@@ -2002,17 +2132,21 @@ async function getDailyShiftReport(req, res) {
     const totalLiters = rows.reduce((s, r) => s + (Number(r.liters) || 0), 0);
     const totalAmount = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
 
-    // ---- NEW: DEDUCTIONS SUMMARY ----
-    const [deductions] = await db.query(
+    // ---- NEW: Fetch Deductions & Remaining from Bills ----
+    const [billSummary] = await db.query(
       `
       SELECT
-        SUM(CASE WHEN payment_type = 'advance' THEN amount_taken ELSE 0 END) AS advance,
-        SUM(CASE WHEN payment_type = 'cattle feed' THEN amount_taken ELSE 0 END) AS cattle_feed,
-        SUM(CASE WHEN payment_type = 'Other1' THEN amount_taken ELSE 0 END) AS other1,
-        SUM(CASE WHEN payment_type = 'Other2' THEN amount_taken ELSE 0 END) AS other2
-      FROM farmer_payments
+        SUM(advance_total) AS advance,
+        SUM(cattlefeed_total) AS cattle_feed,
+        SUM(other1_total) AS other1,
+        SUM(other2_total) AS other2,
+        SUM(advance_remaining) AS advance_remaining,
+        SUM(cattlefeed_remaining) AS cattlefeed_remaining,
+        SUM(other1_remaining) AS other1_remaining,
+        SUM(other2_remaining) AS other2_remaining
+      FROM bills
       WHERE dairy_id = ?
-        AND DATE(date) BETWEEN ? AND ?
+        AND DATE(period_start) BETWEEN ? AND ?
       `,
       [dairyid, startDate, endDate]
     );
@@ -2030,19 +2164,26 @@ async function getDailyShiftReport(req, res) {
         total_liters: Number(totalLiters),
         total_amount: Number(totalAmount),
         deductions: {
-          advance: +deductions[0].advance || 0,
-          cattle_feed: +deductions[0].cattle_feed || 0,
-          other1: +deductions[0].other1 || 0,
-          other2: +deductions[0].other2 || 0
-        }
+          advance: +billSummary[0].advance || 0,
+          cattle_feed: +billSummary[0].cattle_feed || 0,
+          other1: +billSummary[0].other1 || 0,
+          other2: +billSummary[0].other2 || 0,
+        },
+        remaining: {
+          advance_remaining: +billSummary[0].advance_remaining || 0,
+          cattlefeed_remaining: +billSummary[0].cattlefeed_remaining || 0,
+          other1_remaining: +billSummary[0].other1_remaining || 0,
+          other2_remaining: +billSummary[0].other2_remaining || 0,
+        },
       },
-      report: rows
+      report: rows,
     });
   } catch (err) {
     console.error("Error generating daily shift report:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 }
+
 
 
 

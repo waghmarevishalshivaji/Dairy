@@ -2149,7 +2149,7 @@ async function getCollectionBytab(req, res) {
 
     let query = `
       SELECT coll.*,
-             u.fullName as fname
+             u.fullName as fname, u.username as uname
       FROM collections coll
       JOIN users u ON u.username = coll.farmer_id
     `;
@@ -2227,6 +2227,7 @@ async function getCollectionBytab(req, res) {
         amount: (record.quantity * record.rate).toFixed(2), // fixed: amount = qty * rate
         shift: record.shift,
         fname: record.fname,
+        uname : record.uname,
       });
     });
 

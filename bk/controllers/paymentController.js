@@ -343,6 +343,7 @@ async function deletePayment(req, res) {
        FROM bills
        WHERE dairy_id = ? 
          AND farmer_id = ?
+         AND is_finalized = 1
          AND DATE(?) BETWEEN DATE(period_start) AND DATE(period_end)`,
       [dairy_id, farmer_id, payment_date]
     );
@@ -359,6 +360,23 @@ async function deletePayment(req, res) {
         }))
       });
     }
+
+
+    const [billRows_delete] = await db.query(
+      `SELECT id, period_start, period_end, is_finalized
+      FROM bills
+      WHERE dairy_id = ? 
+        AND farmer_id = ?
+        AND DATE(?) BETWEEN DATE(period_start) AND DATE(period_end)`,
+      [dairy_id, farmer_id, payment_date]
+    );
+    if (billRows_delete.length > 0) {
+         const [result_delete_bill] = await db.query(`DELETE FROM bills WHERE id = ?`, [billRows_delete[0].id]);
+    }
+   
+
+
+
 
     // 3️⃣ If safe → delete the payment
     const [result] = await db.query(`DELETE FROM farmer_payments WHERE id = ?`, [id]);

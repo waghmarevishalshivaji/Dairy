@@ -123,7 +123,7 @@ async function getUnreadCount(req, res) {
     const [rows] = await db.query(
       `SELECT COUNT(*) AS unread_count
        FROM notifications
-       WHERE farmer_id = ? AND dairy_id = ? AND read = 0`,
+       WHERE farmer_id = ? AND dairy_id = ? AND \`read\` = 0`,
       [farmer_id, dairy_id]
     );
 
@@ -150,8 +150,8 @@ async function markAllAsRead(req, res) {
   try {
     const [result] = await db.query(
       `UPDATE notifications
-       SET read = 1
-       WHERE farmer_id = ? AND dairy_id = ? AND read = 0`,
+       SET \`read\` = 1
+       WHERE farmer_id = ? AND dairy_id = ? AND \`read\` = 0`,
       [farmer_id, dairy_id]
     );
 

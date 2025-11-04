@@ -76,15 +76,6 @@ async function sendDairyNotification(req, res) {
         farmer_id = "No"
     }
 
-    const io = req.app.get("io");
-    io.to(`dairy_${dairy_id}`).emit("newNotification", {
-      title,
-      body,
-      dairy_id,
-      farmer_id,
-      timestamp: new Date()
-    });
-
 
     await db.execute(
       "INSERT INTO notifications (dairy_id, title, message, farmer_id) VALUES (?, ?, ?, ?)",
@@ -117,4 +108,62 @@ async function sendDairyNotification(req, res) {
   }
 }
 
-module.exports = { sendNotification, getNotifications, sendDairyNotification };
+
+// ===========================
+// 🔹 GET UNREAD COUNT API
+// ===========================
+async function getUnreadCount(req, res) {
+  const { farmer_id, dairy_id } = req.query;
+
+  if (!farmer_id || !dairy_id) {
+    return res.status(400).json({ success: false, message: "farmer_id and dairy_id are required" });
+  }
+
+  try {
+    const [rows] = await db.query(
+      `SELECT COUNT(*) AS unread_count
+       FROM notifications
+       WHERE farmer_id = ? AND dairy_id = ? AND read = 0`,
+      [farmer_id, dairy_id]
+    );
+
+    res.status(200).json({
+      success: true,
+      unread_count: rows[0]?.unread_count || 0,
+    });
+  } catch (err) {
+    console.error("Error fetching unread count:", err);
+    res.status(500).json({ success: false, message: "Server error", error: err.message });
+  }
+}
+
+// ===========================
+// 🔹 MARK ALL AS READ API
+// ===========================
+async function markAllAsRead(req, res) {
+  const { farmer_id, dairy_id } = req.body;
+
+  if (!farmer_id || !dairy_id) {
+    return res.status(400).json({ success: false, message: "farmer_id and dairy_id are required" });
+  }
+
+  try {
+    const [result] = await db.query(
+      `UPDATE notifications
+       SET read = 1
+       WHERE farmer_id = ? AND dairy_id = ? AND read = 0`,
+      [farmer_id, dairy_id]
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "All unread notifications marked as read",
+      updated: result.affectedRows,
+    });
+  } catch (err) {
+    console.error("Error marking notifications as read:", err);
+    res.status(500).json({ success: false, message: "Server error", error: err.message });
+  }
+}
+
+module.exports = { sendNotification, getNotifications, sendDairyNotification, getUnreadCount, markAllAsRead };

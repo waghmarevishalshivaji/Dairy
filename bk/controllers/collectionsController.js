@@ -2616,7 +2616,7 @@ async function getTodaysCollectionfarmer(req, res) {
       message: "Today's collection fetched successfully",
       date: reportDate,
       lastBill,
-      billCycle: {
+      currentBillCycle: {
         start_date: lastBillEndDate || "Beginning",
         end_date: reportDate,
         total_liters: Number(billCycleTotals.total_liters) || 0,

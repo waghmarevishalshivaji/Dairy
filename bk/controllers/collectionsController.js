@@ -2254,6 +2254,199 @@ async function getTodaysCollectionByFarmer(req, res) {
 //   }
 // }
 
+// async function getTodaysCollectionfarmer(req, res) {
+//   let { type, dairy_id, date, farmer_id } = req.query;
+
+//   try {
+//     if (!dairy_id || !farmer_id) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "dairy_id and farmer_id are required",
+//       });
+//     }
+
+//     const today = new Date();
+//     const reportDate = date || today.toISOString().slice(0, 10); // YYYY-MM-DD
+
+//     // 🧾 1️⃣ Fetch last finalized bill
+//     const [lastBillRows] = await db.execute(
+//       `SELECT * 
+//        FROM bills 
+//        WHERE dairy_id=? AND farmer_id=? AND is_finalized=1 
+//        ORDER BY period_end DESC 
+//        LIMIT 1`,
+//       [dairy_id, farmer_id]
+//     );
+
+//     const lastBill = lastBillRows[0] || null;
+//     const lastBillEndDate = lastBill ? lastBill.period_end : null;
+
+//     // 🧮 2️⃣ Fetch all collections for this day
+//     let query = `
+//       SELECT 
+//         id, shift, type, quantity, fat, snf, clr, rate,
+//         (quantity * rate) as amount, created_at
+//       FROM collections
+//       WHERE DATE(created_at) = ?
+//         AND dairy_id = ?
+//         AND farmer_id = ?
+//     `;
+//     const params = [reportDate, dairy_id, farmer_id];
+//     if (type && type !== "All") {
+//       query += ` AND type = ?`;
+//       params.push(type);
+//     }
+//     query += ` ORDER BY shift, created_at`;
+//     const [rows] = await db.execute(query, params);
+
+//     // 💰 3️⃣ Payments within current bill cycle
+//     let paymentsQuery = `
+//       SELECT 
+//         SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) AS advance,
+//         SUM(CASE WHEN payment_type='cattle feed' THEN amount_taken ELSE 0 END) AS cattle_feed,
+//         SUM(CASE WHEN payment_type='Other1' THEN amount_taken ELSE 0 END) AS other1,
+//         SUM(CASE WHEN payment_type='Other2' THEN amount_taken ELSE 0 END) AS other2,
+//         SUM(amount_taken) AS total_deductions,
+//         SUM(received) AS total_received
+//       FROM farmer_payments
+//       WHERE dairy_id=? AND farmer_id=? 
+//     `;
+//     const payParams = [dairy_id, farmer_id];
+
+//     if (lastBillEndDate) {
+//       // current bill cycle = after last finalized bill
+//       paymentsQuery += ` AND DATE(date) > DATE(?) AND DATE(date) <= DATE(?)`;
+//       payParams.push(lastBillEndDate, reportDate);
+//     } else {
+//       // no finalized bill yet → all till today
+//       paymentsQuery += ` AND DATE(date) <= DATE(?)`;
+//       payParams.push(reportDate);
+//     }
+
+//     const [paymentRows] = await db.execute(paymentsQuery, payParams);
+//     const payments = paymentRows[0] || {};
+
+//     // 📅 4️⃣ Till-date averages
+//     const [avgFatTillDateRows] = await db.execute(
+//       `SELECT 
+//          ROUND(AVG(fat),2) AS avg_fat_till_date,
+//          ROUND(AVG(snf),2) AS avg_snf_till_date,
+//          ROUND(AVG(clr),2) AS avg_clr_till_date
+//        FROM collections
+//        WHERE dairy_id=? AND farmer_id=? AND DATE(created_at) <= ?`,
+//       [dairy_id, farmer_id, reportDate]
+//     );
+//     const avgTillDate = avgFatTillDateRows[0] || {};
+
+//     // 🧾 5️⃣ Total collections after last bill
+//     let afterLastBillTotals;
+//     if (lastBillEndDate) {
+//       const [afterTotals] = await db.execute(
+//         `SELECT 
+//           SUM(quantity) AS total_liters,
+//           SUM(quantity * rate) AS total_amount,
+//           ROUND(AVG(fat),2) AS avg_fat,
+//           ROUND(AVG(snf),2) AS avg_snf,
+//           ROUND(AVG(clr),2) AS avg_clr
+//         FROM collections
+//         WHERE dairy_id=? AND farmer_id=? AND created_at > ?`,
+//         [dairy_id, farmer_id, lastBillEndDate]
+//       );
+//       afterLastBillTotals = afterTotals[0];
+//     } else {
+//       const [allTotals] = await db.execute(
+//         `SELECT 
+//           SUM(quantity) AS total_liters,
+//           SUM(quantity * rate) AS total_amount,
+//           ROUND(AVG(fat),2) AS avg_fat,
+//           ROUND(AVG(snf),2) AS avg_snf,
+//           ROUND(AVG(clr),2) AS avg_clr
+//         FROM collections
+//         WHERE dairy_id=? AND farmer_id=?`,
+//         [dairy_id, farmer_id]
+//       );
+//       afterLastBillTotals = allTotals[0];
+//     }
+
+//     // 🧮 6️⃣ Group data by shift
+//     const grouped = { morning: [], evening: [] };
+//     rows.forEach((r) => {
+//       const entry = {
+//         id: r.id,
+//         type: r.type,
+//         shift: r.shift,
+//         quantity: Number(r.quantity),
+//         fat: Number(r.fat),
+//         snf: Number(r.snf),
+//         clr: Number(r.clr),
+//         rate: Number(r.rate),
+//         amount: Number(r.amount),
+//         created_at: r.created_at,
+//       };
+//       if (r.shift.toLowerCase() === "morning") grouped.morning.push(entry);
+//       if (r.shift.toLowerCase() === "evening") grouped.evening.push(entry);
+//     });
+
+//     // 🧾 7️⃣ Calculate shift totals
+//     const calcShiftTotals = (entries) => {
+//       if (!entries.length)
+//         return { total_quantity: 0, avg_fat: 0, avg_snf: 0, avg_clr: 0, total_amount: 0 };
+//       const totalQty = entries.reduce((a, b) => a + b.quantity, 0);
+//       const totalAmount = entries.reduce((a, b) => a + b.amount, 0);
+//       return {
+//         total_quantity: totalQty,
+//         avg_fat: (entries.reduce((a, b) => a + b.fat, 0) / entries.length).toFixed(2),
+//         avg_snf: (entries.reduce((a, b) => a + b.snf, 0) / entries.length).toFixed(2),
+//         avg_clr: (entries.reduce((a, b) => a + b.clr, 0) / entries.length).toFixed(2),
+//         total_amount: totalAmount,
+//       };
+//     };
+
+//     const morningTotals = calcShiftTotals(grouped.morning);
+//     const eveningTotals = calcShiftTotals(grouped.evening);
+
+//     // 🧮 8️⃣ Calculate deductions object for current cycle
+//     const deductions = {
+//       advance: Number(payments.advance) || 0,
+//       cattle_feed: Number(payments.cattle_feed) || 0,
+//       other1: Number(payments.other1) || 0,
+//       other2: Number(payments.other2) || 0,
+//       total: Number(payments.total_deductions) || 0,
+//     };
+
+//     // 🧮 9️⃣ Calculate net amount
+//     const totalAmount = morningTotals.total_amount + eveningTotals.total_amount;
+//     const total_received = Number(payments.total_received) || 0;
+//     const netAmount = totalAmount - deductions.total + total_received;
+
+//     // ✅ 🔟 Final Response
+//     res.status(200).json({
+//       success: true,
+//       message: "Today's collection fetched successfully",
+//       date: reportDate,
+//       lastBill,
+//       afterLastBillTotals,
+//       currentBillCycle: {
+//         deductions,
+//         total_received,
+//         netAmount,
+//       },
+//       data: {
+//         morning: { shift: "Morning", entries: grouped.morning, totals: morningTotals },
+//         evening: { shift: "Evening", entries: grouped.evening, totals: eveningTotals },
+//         tillDateAverages: avgTillDate,
+//       },
+//     });
+//   } catch (err) {
+//     console.error("Error fetching today's collection:", err);
+//     res.status(500).json({
+//       success: false,
+//       message: "Server error",
+//       error: err.message,
+//     });
+//   }
+// }
+
 async function getTodaysCollectionfarmer(req, res) {
   let { type, dairy_id, date, farmer_id } = req.query;
 
@@ -2281,7 +2474,7 @@ async function getTodaysCollectionfarmer(req, res) {
     const lastBill = lastBillRows[0] || null;
     const lastBillEndDate = lastBill ? lastBill.period_end : null;
 
-    // 🧮 2️⃣ Fetch all collections for this day
+    // 🧮 2️⃣ Fetch all collections for the given date
     let query = `
       SELECT 
         id, shift, type, quantity, fat, snf, clr, rate,
@@ -2299,7 +2492,7 @@ async function getTodaysCollectionfarmer(req, res) {
     query += ` ORDER BY shift, created_at`;
     const [rows] = await db.execute(query, params);
 
-    // 💰 3️⃣ Payments within current bill cycle
+    // 💰 3️⃣ Payments for current bill cycle
     let paymentsQuery = `
       SELECT 
         SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) AS advance,
@@ -2314,11 +2507,9 @@ async function getTodaysCollectionfarmer(req, res) {
     const payParams = [dairy_id, farmer_id];
 
     if (lastBillEndDate) {
-      // current bill cycle = after last finalized bill
       paymentsQuery += ` AND DATE(date) > DATE(?) AND DATE(date) <= DATE(?)`;
       payParams.push(lastBillEndDate, reportDate);
     } else {
-      // no finalized bill yet → all till today
       paymentsQuery += ` AND DATE(date) <= DATE(?)`;
       payParams.push(reportDate);
     }
@@ -2338,35 +2529,35 @@ async function getTodaysCollectionfarmer(req, res) {
     );
     const avgTillDate = avgFatTillDateRows[0] || {};
 
-    // 🧾 5️⃣ Total collections after last bill
-    let afterLastBillTotals;
+    // 🧾 5️⃣ Collections within current bill cycle
+    let billCycleQuery = `
+      SELECT 
+        SUM(quantity) AS total_liters,
+        SUM(quantity * rate) AS total_amount,
+        ROUND(AVG(fat),2) AS avg_fat,
+        ROUND(AVG(snf),2) AS avg_snf,
+        ROUND(AVG(clr),2) AS avg_clr,
+        COUNT(DISTINCT DATE(created_at)) AS days_count
+      FROM collections
+      WHERE dairy_id=? AND farmer_id=? 
+    `;
+    const billParams = [dairy_id, farmer_id];
+
     if (lastBillEndDate) {
-      const [afterTotals] = await db.execute(
-        `SELECT 
-          SUM(quantity) AS total_liters,
-          SUM(quantity * rate) AS total_amount,
-          ROUND(AVG(fat),2) AS avg_fat,
-          ROUND(AVG(snf),2) AS avg_snf,
-          ROUND(AVG(clr),2) AS avg_clr
-        FROM collections
-        WHERE dairy_id=? AND farmer_id=? AND created_at > ?`,
-        [dairy_id, farmer_id, lastBillEndDate]
-      );
-      afterLastBillTotals = afterTotals[0];
+      billCycleQuery += ` AND DATE(created_at) > DATE(?) AND DATE(created_at) <= DATE(?)`;
+      billParams.push(lastBillEndDate, reportDate);
     } else {
-      const [allTotals] = await db.execute(
-        `SELECT 
-          SUM(quantity) AS total_liters,
-          SUM(quantity * rate) AS total_amount,
-          ROUND(AVG(fat),2) AS avg_fat,
-          ROUND(AVG(snf),2) AS avg_snf,
-          ROUND(AVG(clr),2) AS avg_clr
-        FROM collections
-        WHERE dairy_id=? AND farmer_id=?`,
-        [dairy_id, farmer_id]
-      );
-      afterLastBillTotals = allTotals[0];
+      billCycleQuery += ` AND DATE(created_at) <= DATE(?)`;
+      billParams.push(reportDate);
     }
+
+    const [billCycleRows] = await db.execute(billCycleQuery, billParams);
+    const billCycleTotals = billCycleRows[0] || {};
+    const avgDailyMilk =
+      billCycleTotals.days_count > 0
+        ? (Number(billCycleTotals.total_liters || 0) /
+            Number(billCycleTotals.days_count)).toFixed(2)
+        : 0;
 
     // 🧮 6️⃣ Group data by shift
     const grouped = { morning: [], evening: [] };
@@ -2405,7 +2596,7 @@ async function getTodaysCollectionfarmer(req, res) {
     const morningTotals = calcShiftTotals(grouped.morning);
     const eveningTotals = calcShiftTotals(grouped.evening);
 
-    // 🧮 8️⃣ Calculate deductions object for current cycle
+    // 🧮 8️⃣ Deductions for current bill cycle
     const deductions = {
       advance: Number(payments.advance) || 0,
       cattle_feed: Number(payments.cattle_feed) || 0,
@@ -2414,7 +2605,7 @@ async function getTodaysCollectionfarmer(req, res) {
       total: Number(payments.total_deductions) || 0,
     };
 
-    // 🧮 9️⃣ Calculate net amount
+    // 🧮 9️⃣ Net Amount
     const totalAmount = morningTotals.total_amount + eveningTotals.total_amount;
     const total_received = Number(payments.total_received) || 0;
     const netAmount = totalAmount - deductions.total + total_received;
@@ -2425,8 +2616,14 @@ async function getTodaysCollectionfarmer(req, res) {
       message: "Today's collection fetched successfully",
       date: reportDate,
       lastBill,
-      afterLastBillTotals,
-      currentBillCycle: {
+      billCycle: {
+        start_date: lastBillEndDate || "Beginning",
+        end_date: reportDate,
+        total_liters: Number(billCycleTotals.total_liters) || 0,
+        avg_fat: Number(billCycleTotals.avg_fat) || 0,
+        avg_snf: Number(billCycleTotals.avg_snf) || 0,
+        avg_clr: Number(billCycleTotals.avg_clr) || 0,
+        avg_daily_milk_liters: Number(avgDailyMilk) || 0,
         deductions,
         total_received,
         netAmount,
@@ -2446,9 +2643,6 @@ async function getTodaysCollectionfarmer(req, res) {
     });
   }
 }
-
-
-
 
 
 

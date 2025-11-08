@@ -5000,10 +5000,6 @@ async function getFarmerBillSummary(req, res) {
 
 
 
-
-
-
-
 async function getFarmerBillDetails(req, res) {
   let { farmer_id, dairyid, datefrom, dateto } = req.query;
 

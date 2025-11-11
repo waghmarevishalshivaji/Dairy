@@ -166,14 +166,14 @@ async function insertPayment(req, res) {
 
   // 3️⃣ Get farmer expo token
   const [farmerRows] = await db.execute(
-    `SELECT expo_token, username FROM users WHERE username = ? AND dairy_id = ?`,
+    `SELECT expo_token, username, fullName FROM users WHERE username = ? AND dairy_id = ?`,
     [req.body.farmer_id, req.body.dairy_id]
   );
 
   // Optional — get safe defaults
   const farmer = farmerRows[0] || {};
   const expo_token = farmer.expo_token || null;
-  const username = farmer.username || req.body.farmer_id;
+  const username = farmer.fullName || req.body.farmer_id;
 
   // 4️⃣ Create notification entry regardless of Expo
   const now = new Date();
@@ -191,8 +191,15 @@ async function insertPayment(req, res) {
   const [month, day, year] = datePart.split('/');
   const formattedIdtDateTime = `${year}-${month}-${day} ${timePart}`;
 
+  let amtmessage = '';
+  if(req.body['amount_taken'] > 0){
+      amtmessage = `Dear ${username || 'Farmer'}, you have taken ${req.body.payment_type} of ${req.body['amount_taken']} .`;
+  }else{
+    amtmessage = `Dear ${username || 'Farmer'}, your ${req.body.payment_type} of ${req.body['received']} has been collected .`;
+  }
+
   const title = 'Payment Update';
-  const message = `Dear ${username || 'Farmer'}, your payment is updated.`;
+  const message = amtmessage; //`Dear ${username || 'Farmer'}, you have taken ${req.body.payment_type} of ${req.body['amount_taken']} .`;
 
   await db.execute(
     'INSERT INTO notifications (dairy_id, title, message, farmer_id) VALUES (?, ?, ?, ?)',
@@ -210,7 +217,7 @@ async function insertPayment(req, res) {
           to: expo_token,
           sound: 'default',
           title: 'Payment Update',
-          body: `Dear ${username || 'Farmer'}, your ${req.body.payment_type} payment is updated successfully.`,
+          body: amtmessage, //`Dear ${username || 'Farmer'}, you have taken ${req.body.payment_type} of ${req.body['amount_taken']} .`,
           data: { type: 'payment', username, date: formattedIdtDateTime }
         }
       ];

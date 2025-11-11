@@ -4312,6 +4312,211 @@ async function getTodaysCollectionByFarmer(req, res) {
 //   }
 // }
 
+// async function getTodaysCollectionfarmer(req, res) {
+//   let { type, dairy_id, date, farmer_id } = req.query;
+
+//   try {
+//     if (!dairy_id || !farmer_id) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "dairy_id and farmer_id are required",
+//       });
+//     }
+
+//     const today = new Date();
+//     const reportDate = date || today.toISOString().slice(0, 10); // YYYY-MM-DD
+//     const currentDate = new Date(reportDate);
+//     const year = currentDate.getFullYear();
+//     const month = currentDate.getMonth(); // 0-based
+//     const day = currentDate.getDate();
+
+//     // 🧾 1️⃣ Fetch dairy billing cycle (days)
+//     const [dairyRows] = await db.execute(
+//       `SELECT days FROM dairy WHERE id = ?`,
+//       [dairy_id]
+//     );
+//     const billingDays = dairyRows[0]?.days ? parseInt(dairyRows[0].days) : 15;
+
+//     // 🧮 2️⃣ Calculate current cycle start and end date based on billingDays
+//     const getMonthEnd = (y, m) => new Date(y, m + 1, 0).getDate(); // last day of month
+//     const monthEnd = getMonthEnd(year, month);
+
+//     let cycleStartDay = 1;
+//     let cycleEndDay = billingDays;
+
+//     // Find which cycle current date falls in
+//     while (day > cycleEndDay) {
+//       cycleStartDay = cycleEndDay + 1;
+//       cycleEndDay += billingDays;
+//     }
+//     if (cycleEndDay > monthEnd) cycleEndDay = monthEnd; // clamp to month end
+
+//     const cycleStartDate = new Date(year, month, cycleStartDay);
+//     const cycleEndDate = new Date(year, month, cycleEndDay);
+
+//     const fromDate = cycleStartDate.toISOString().slice(0, 10);
+//     const toDate = cycleEndDate.toISOString().slice(0, 10);
+
+//     // 🧾 3️⃣ Get totals for this current cycle only
+//     const [afterTotals] = await db.execute(
+//       `SELECT 
+//         SUM(quantity) AS total_liters,
+//         SUM(quantity * rate) AS milk_total,
+//         ROUND(AVG(fat),2) AS avg_fat,
+//         ROUND(AVG(snf),2) AS avg_snf,
+//         ROUND(AVG(clr),2) AS avg_clr
+//        FROM collections
+//        WHERE dairy_id=? AND farmer_id=? 
+//          AND DATE(created_at) BETWEEN ? AND ?`,
+//       [dairy_id, farmer_id, fromDate, toDate]
+//     );
+
+//     const [deductionsRows] = await db.execute(
+//       `SELECT 
+//          SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) AS advance,
+//          SUM(CASE WHEN payment_type='cattle feed' THEN amount_taken ELSE 0 END) AS cattle_feed,
+//          SUM(CASE WHEN payment_type='Other1' THEN amount_taken ELSE 0 END) AS other1,
+//          SUM(CASE WHEN payment_type='Other2' THEN amount_taken ELSE 0 END) AS other2,
+//          SUM(amount_taken) AS total_payments
+//        FROM farmer_payments
+//        WHERE dairy_id=? AND farmer_id=? 
+//          AND DATE(date) BETWEEN ? AND ?`,
+//       [dairy_id, farmer_id, fromDate, toDate]
+//     );
+
+//     const c = afterTotals[0] || {};
+//     const d = deductionsRows[0] || {};
+
+//     const afterLastBillTotals = {
+//       from_date: fromDate,
+//       to_date: toDate,
+//       billing_days: billingDays,
+//       total_liters: +c.total_liters || 0,
+//       avg_fat: +c.avg_fat || 0,
+//       avg_snf: +c.avg_snf || 0,
+//       avg_clr: +c.avg_clr || 0,
+//       milk_total: +c.milk_total || 0,
+//       total_payments: +d.total_payments || 0,
+//       total_amount: (+c.milk_total || 0) - (+d.total_payments || 0),
+//       deductions: {
+//         advance: +d.advance || 0,
+//         cattle_feed: +d.cattle_feed || 0,
+//         other1: +d.other1 || 0,
+//         other2: +d.other2 || 0,
+//       },
+//     };
+
+//     // 🧾 4️⃣ Fetch daily collection for report date
+//     let query = `
+//       SELECT 
+//         id, shift, type, quantity, fat, snf, clr, rate,
+//         (quantity * rate) as amount, created_at
+//       FROM collections
+//       WHERE DATE(created_at) = ?
+//         AND dairy_id = ?
+//         AND farmer_id = ?
+//     `;
+//     const params = [reportDate, dairy_id, farmer_id];
+//     if (type && type !== "All") {
+//       query += ` AND type = ?`;
+//       params.push(type);
+//     }
+//     query += ` ORDER BY shift, created_at`;
+//     const [rows] = await db.execute(query, params);
+
+//     const [paymentRows] = await db.execute(
+//       `SELECT 
+//          SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) AS advance,
+//          SUM(CASE WHEN payment_type='cattle feed' THEN amount_taken ELSE 0 END) AS cattle_feed,
+//          SUM(CASE WHEN payment_type='Other1' THEN amount_taken ELSE 0 END) AS other1,
+//          SUM(CASE WHEN payment_type='Other2' THEN amount_taken ELSE 0 END) AS other2,
+//          SUM(amount_taken) AS total_deductions,
+//          SUM(received) AS total_received
+//        FROM farmer_payments
+//        WHERE dairy_id=? AND farmer_id=? AND DATE(date)=?`,
+//       [dairy_id, farmer_id, reportDate]
+//     );
+//     const payments = paymentRows[0] || {};
+
+//     // 📊 Group by shift
+//     const grouped = { morning: [], evening: [] };
+//     rows.forEach((r) => {
+//       const entry = {
+//         id: r.id,
+//         type: r.type,
+//         shift: r.shift,
+//         quantity: Number(r.quantity),
+//         fat: Number(r.fat),
+//         snf: Number(r.snf),
+//         clr: Number(r.clr),
+//         rate: Number(r.rate),
+//         amount: Number(r.amount),
+//         created_at: r.created_at,
+//       };
+//       if (r.shift.toLowerCase() === "morning") grouped.morning.push(entry);
+//       if (r.shift.toLowerCase() === "evening") grouped.evening.push(entry);
+//     });
+
+//     const calcShiftTotals = (entries) => {
+//       if (!entries.length)
+//         return { total_quantity: 0, avg_fat: 0, avg_snf: 0, avg_clr: 0, total_amount: 0 };
+//       const totalQty = entries.reduce((a, b) => a + b.quantity, 0);
+//       const totalAmount = entries.reduce((a, b) => a + b.amount, 0);
+//       return {
+//         total_quantity: totalQty,
+//         avg_fat: (entries.reduce((a, b) => a + b.fat, 0) / entries.length).toFixed(2),
+//         avg_snf: (entries.reduce((a, b) => a + b.snf, 0) / entries.length).toFixed(2),
+//         avg_clr: (entries.reduce((a, b) => a + b.clr, 0) / entries.length).toFixed(2),
+//         total_amount: totalAmount,
+//       };
+//     };
+
+//     const morningTotals = calcShiftTotals(grouped.morning);
+//     const eveningTotals = calcShiftTotals(grouped.evening);
+
+//     const totalQty = morningTotals.total_quantity + eveningTotals.total_quantity;
+//     const totalAmount = morningTotals.total_amount + eveningTotals.total_amount;
+//     const dailyAvgFat =
+//       (Number(morningTotals.avg_fat) + Number(eveningTotals.avg_fat)) / 2 || 0;
+
+//     const deductions = {
+//       advance: Number(payments.advance) || 0,
+//       cattle_feed: Number(payments.cattle_feed) || 0,
+//       other1: Number(payments.other1) || 0,
+//       other2: Number(payments.other2) || 0,
+//       total: Number(payments.total_deductions) || 0,
+//     };
+
+//     const netAmount =
+//       totalAmount - deductions.total + (Number(payments.total_received) || 0);
+
+//     // ✅ Final Response
+//     res.status(200).json({
+//       success: true,
+//       message: "Today's collection fetched successfully",
+//       date: reportDate,
+//       billing_cycle: { from: fromDate, to: toDate, billingDays },
+//       afterLastBillTotals,
+//       data: {
+//         morning: { shift: "Morning", entries: grouped.morning, totals: morningTotals },
+//         evening: { shift: "Evening", entries: grouped.evening, totals: eveningTotals },
+//         overall: { totalQty, totalAmount, avgFat: dailyAvgFat.toFixed(2) },
+//         financials: {
+//           deductions,
+//           total_received: Number(payments.total_received) || 0,
+//           netAmount,
+//         },
+//       },
+//     });
+//   } catch (err) {
+//     console.error("Error fetching today's collection:", err);
+//     res
+//       .status(500)
+//       .json({ success: false, message: "Server error", error: err.message });
+//   }
+// }
+
+
 async function getTodaysCollectionfarmer(req, res) {
   let { type, dairy_id, date, farmer_id } = req.query;
 
@@ -4323,41 +4528,45 @@ async function getTodaysCollectionfarmer(req, res) {
       });
     }
 
+    // 🧾 1️⃣ Setup date info
     const today = new Date();
-    const reportDate = date || today.toISOString().slice(0, 10); // YYYY-MM-DD
+    const reportDate = date || today.toISOString().slice(0, 10);
     const currentDate = new Date(reportDate);
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth(); // 0-based
     const day = currentDate.getDate();
 
-    // 🧾 1️⃣ Fetch dairy billing cycle (days)
+    // 🧾 2️⃣ Fetch dairy billing cycle (days)
     const [dairyRows] = await db.execute(
       `SELECT days FROM dairy WHERE id = ?`,
       [dairy_id]
     );
-    const billingDays = dairyRows[0]?.days ? parseInt(dairyRows[0].days) : 15;
+    const billingDays = dairyRows[0]?.days ? parseInt(dairyRows[0].days) : 10;
 
-    // 🧮 2️⃣ Calculate current cycle start and end date based on billingDays
-    const getMonthEnd = (y, m) => new Date(y, m + 1, 0).getDate(); // last day of month
-    const monthEnd = getMonthEnd(year, month);
+    // 🧮 3️⃣ Calculate month end correctly (28/29/30/31)
+    const monthEnd = new Date(year, month + 1, 0).getDate(); // last day of month
 
+    // 🧮 4️⃣ Determine current cycle start/end days
     let cycleStartDay = 1;
     let cycleEndDay = billingDays;
 
-    // Find which cycle current date falls in
     while (day > cycleEndDay) {
       cycleStartDay = cycleEndDay + 1;
       cycleEndDay += billingDays;
     }
-    if (cycleEndDay > monthEnd) cycleEndDay = monthEnd; // clamp to month end
 
-    const cycleStartDate = new Date(year, month, cycleStartDay);
-    const cycleEndDate = new Date(year, month, cycleEndDay);
+    // If we go past actual month end, stop at monthEnd
+    if (cycleEndDay > monthEnd) cycleEndDay = monthEnd;
 
-    const fromDate = cycleStartDate.toISOString().slice(0, 10);
-    const toDate = cycleEndDate.toISOString().slice(0, 10);
+    // Format final cycle range dates
+    const fromDate = `${year}-${String(month + 1).padStart(2, "0")}-${String(
+      cycleStartDay
+    ).padStart(2, "0")}`;
+    const toDate = `${year}-${String(month + 1).padStart(2, "0")}-${String(
+      cycleEndDay
+    ).padStart(2, "0")}`;
 
-    // 🧾 3️⃣ Get totals for this current cycle only
+    // 🧾 5️⃣ Fetch total milk and payments in that cycle
     const [afterTotals] = await db.execute(
       `SELECT 
         SUM(quantity) AS total_liters,
@@ -4406,7 +4615,7 @@ async function getTodaysCollectionfarmer(req, res) {
       },
     };
 
-    // 🧾 4️⃣ Fetch daily collection for report date
+    // 🧾 6️⃣ Fetch today's collection details
     let query = `
       SELECT 
         id, shift, type, quantity, fat, snf, clr, rate,
@@ -4424,6 +4633,7 @@ async function getTodaysCollectionfarmer(req, res) {
     query += ` ORDER BY shift, created_at`;
     const [rows] = await db.execute(query, params);
 
+    // 🧾 7️⃣ Daily payments
     const [paymentRows] = await db.execute(
       `SELECT 
          SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) AS advance,
@@ -4438,7 +4648,7 @@ async function getTodaysCollectionfarmer(req, res) {
     );
     const payments = paymentRows[0] || {};
 
-    // 📊 Group by shift
+    // 📊 8️⃣ Group by shift
     const grouped = { morning: [], evening: [] };
     rows.forEach((r) => {
       const entry = {
@@ -4490,12 +4700,18 @@ async function getTodaysCollectionfarmer(req, res) {
     const netAmount =
       totalAmount - deductions.total + (Number(payments.total_received) || 0);
 
-    // ✅ Final Response
+    // ✅ 9️⃣ Final Response
     res.status(200).json({
       success: true,
       message: "Today's collection fetched successfully",
       date: reportDate,
-      billing_cycle: { from: fromDate, to: toDate, billingDays },
+      current_cycle: {
+        from: fromDate,
+        to: toDate,
+        range: `${cycleStartDay}-${cycleEndDay}`,
+        month_end: monthEnd,
+        billing_days: billingDays,
+      },
       afterLastBillTotals,
       data: {
         morning: { shift: "Morning", entries: grouped.morning, totals: morningTotals },

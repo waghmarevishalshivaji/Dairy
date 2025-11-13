@@ -292,7 +292,8 @@ async function createCollection(req, res) {
       [farmer_id, dairy_id, formattedIdtDateTime]
     );
 
-    if (existingBill.length > 0) {
+
+    if (existingBill.length > 0 && (existingBill[0].status === 'paid' || existingBill[0].is_finalized)) {
       const bill = existingBill[0];
       return res.status(400).json({
         success: false,

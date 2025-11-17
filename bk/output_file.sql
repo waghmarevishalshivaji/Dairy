@@ -191,3 +191,16 @@ UNLOCK TABLES;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 -- Dump completed on 2025-06-12  0:49:39
+-- Table structure for table `web_users`
+-- For Creating new users in web_users table
+-- by Brahmjot Singh
+-- 17-11-2025 18:30:00
+
+DROP TABLE IF EXISTS `web_users`;
+CREATE TABLE web_users (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(100) NOT NULL,
+  temp_pw VARCHAR(10) NOT NULL,
+  mobile_number VARCHAR(20) NOT NULL
+);

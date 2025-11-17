@@ -72,6 +72,7 @@ const paymentsRoutes = require('./routes/paymentRoutes');
 const billRoutes = require('./routes/billingRoutes');
 const reportRoutes = require('./routes/reportsRoutes');
 const notificationRoutes = require('./routes/notificationRoutes'); // NEW
+const webUserRoutes = require('./routes/webUserRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -99,6 +100,7 @@ app.use('/payments', paymentsRoutes);
 app.use('/bill', billRoutes);
 app.use('/report', reportRoutes);
 app.use('/notifications', notificationRoutes); // NEW
+app.use('/web-users', webUserRoutes);
 
 // Create HTTP server
 const server = http.createServer(app);

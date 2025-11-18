@@ -97,4 +97,63 @@ async function getCollectionsSummary(req, res) {
   }
 }
 
-module.exports = { getDashboardData, getCollectionsSummary };
+// Get farmer collections with filters
+async function getFarmerCollections(req, res) {
+  const { branches, type, shift, from_date, to_date } = req.body;
+  if (!branches || !Array.isArray(branches) || branches.length === 0) {
+    return res.status(400).json({ success: false, message: 'Branches array is required' });
+  }
+  if (!from_date || !to_date) {
+    return res.status(400).json({ success: false, message: 'from_date and to_date are required' });
+  }
+  try {
+    const results = [];
+    for (const dairy_id of branches) {
+      let query = `
+        SELECT 
+          c.farmer_id,
+          c.type,
+          c.shift,
+          c.created_at,
+          SUM(c.quantity) AS total_quantity,
+          u.fullName,
+          u.is_active
+        FROM collections c
+        LEFT JOIN users u ON c.farmer_id = u.username AND u.role = 'farmer'
+        WHERE c.dairy_id = ? AND DATE(c.created_at) BETWEEN ? AND ?
+      `;
+      const params = [dairy_id, from_date, to_date];
+      if (type && type !== 'All') {
+        query += ` AND c.type = ?`;
+        params.push(type);
+      }
+      if (shift && shift !== 'All') {
+        query += ` AND c.shift = ?`;
+        params.push(shift);
+      }
+      query += ` GROUP BY c.farmer_id, c.type, c.shift, c.created_at, u.fullName, u.is_active`;
+      const [rows] = await db.execute(query, params);
+      rows.forEach(row => {
+        results.push({
+          dairy_id,
+          farmer_id: row.farmer_id,
+          fullName: row.fullName,
+          is_active: row.is_active,
+          type: row.type,
+          shift: row.shift,
+          created_at: row.created_at,
+          quantity: parseFloat(row.total_quantity) || 0
+        });
+      });
+    }
+    return res.status(200).json({ 
+      success: true,
+      data: results
+    });
+  } catch (err) {
+    console.error('Error fetching farmer collections:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+}
+
+module.exports = { getDashboardData, getCollectionsSummary, getFarmerCollections };

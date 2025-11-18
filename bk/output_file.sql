@@ -206,3 +206,16 @@ CREATE TABLE web_users (
   mobile_number VARCHAR(20) NOT NULL,
   branches JSON DEFAULT NULL
 );
+
+DROP TABLE IF EXISTS `vlc_collection_entry`;
+CREATE TABLE vlc_collection_entry (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  date DATETIME NOT NULL,
+  shift VARCHAR(20) NOT NULL,
+  vlc_id VARCHAR(50) NOT NULL,
+  vlc_name VARCHAR(100) NOT NULL,
+  weight DECIMAL(10,2) NOT NULL,
+  fat DECIMAL(5,2) NOT NULL,
+  snf DECIMAL(5,2) NOT NULL,
+  clr DECIMAL(5,2) NOT NULL
+);

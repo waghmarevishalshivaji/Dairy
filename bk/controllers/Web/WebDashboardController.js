@@ -12,9 +12,32 @@ async function getDashboardData(req, res) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
     const branches = userRows[0].branches || [];
+    
+    const branchData = [];
+    for (const branchId of branches) {
+      const [userDairyRows] = await db.execute('SELECT user_id FROM userDairy WHERE dairy_id = ?', [branchId]);
+      let username = null;
+      if (userDairyRows.length > 0) {
+        const userId = userDairyRows[0].user_id;
+        const [userRows] = await db.execute('SELECT username FROM users WHERE id = ?', [userId]);
+        if (userRows.length > 0) {
+          username = userRows[0].username;
+        }
+      }
+      
+      const [dairyRows] = await db.execute('SELECT name FROM dairy WHERE id = ?', [branchId]);
+      const name = dairyRows.length > 0 ? dairyRows[0].name : null;
+      
+      branchData.push({
+        branch_id: branchId,
+        username,
+        name
+      });
+    }
+    
     return res.status(200).json({ 
       success: true,
-      branches
+      branches: branchData
     });
   } catch (err) {
     console.error('Error fetching dashboard data:', err);

@@ -11,7 +11,7 @@ async function getDashboardData(req, res) {
     if (userRows.length === 0) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
-    const branches = userRows[0].branches ? JSON.parse(userRows[0].branches) : [];
+    const branches = userRows[0].branches || [];
     return res.status(200).json({ 
       success: true,
       branches

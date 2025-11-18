@@ -74,6 +74,7 @@ const reportRoutes = require('./routes/reportsRoutes');
 const notificationRoutes = require('./routes/notificationRoutes'); // NEW
 const webUserRoutes = require('./routes/webUserRoutes');
 const webBranchRoutes = require('./routes/Web/WebBranchRoutes');
+const webDashboardRoutes = require('./routes/Web/WebDashboardRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -101,8 +102,11 @@ app.use('/payments', paymentsRoutes);
 app.use('/bill', billRoutes);
 app.use('/report', reportRoutes);
 app.use('/notifications', notificationRoutes); // NEW
+
+// web routes
 app.use('/web-users', webUserRoutes);
 app.use('/web/branches', webBranchRoutes);
+app.use('/web/dashboard', webDashboardRoutes);
 
 // Create HTTP server
 const server = http.createServer(app);

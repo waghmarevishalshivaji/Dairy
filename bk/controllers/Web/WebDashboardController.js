@@ -99,6 +99,7 @@ async function getCollectionsSummary(req, res) {
 
 // Get farmer collections with filters
 async function getFarmerCollections(req, res) {
+  console.log('📥 Frontend Request:', JSON.stringify(req.body, null, 2));
   const { branches, type, shift, from_date, to_date } = req.body;
   if (!branches || !Array.isArray(branches) || branches.length === 0) {
     return res.status(400).json({ success: false, message: 'Branches array is required' });
@@ -119,7 +120,7 @@ async function getFarmerCollections(req, res) {
           u.fullName,
           u.is_active
         FROM collections c
-        LEFT JOIN users u ON c.farmer_id = u.username AND u.role = 'farmer'
+        LEFT JOIN users u ON c.farmer_id = u.username AND u.role = 'farmer' AND c.dairy_id = u.dairy_id
         WHERE c.dairy_id = ? AND DATE(c.created_at) BETWEEN ? AND ?
       `;
       const params = [dairy_id, from_date, to_date];
@@ -131,8 +132,11 @@ async function getFarmerCollections(req, res) {
         query += ` AND c.shift = ?`;
         params.push(shift);
       }
-      query += ` GROUP BY c.farmer_id, c.type, c.shift, c.created_at, u.fullName, u.is_active`;
+      query += ` GROUP BY c.farmer_id, u.fullName, u.is_active ORDER BY c.created_at DESC`;
+      console.log('🔍 Query:', query);
+      console.log('🔍 Params:', params);
       const [rows] = await db.execute(query, params);
+      console.log(`📊 Rows for dairy_id ${dairy_id}:`, rows.length);
       rows.forEach(row => {
         results.push({
           dairy_id,
@@ -146,12 +150,13 @@ async function getFarmerCollections(req, res) {
         });
       });
     }
+    console.log('📤 Backend Response:', JSON.stringify({ success: true, data: results }, null, 2));
     return res.status(200).json({ 
       success: true,
       data: results
     });
   } catch (err) {
-    console.error('Error fetching farmer collections:', err);
+    console.error('❌ Error fetching farmer collections:', err);
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 }

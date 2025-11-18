@@ -24,6 +24,7 @@ async function createVLCEntry(req, res) {
 
 // Get VLC entries by vlc_id array
 async function getVLCEntries(req, res) {
+  console.log('📥 Frontend Request:', JSON.stringify(req.body, null, 2));
   const { vlc_ids, date, shift } = req.body;
   if (!vlc_ids || !Array.isArray(vlc_ids) || vlc_ids.length === 0) {
     return res.status(400).json({ success: false, message: 'vlc_ids array is required' });
@@ -42,13 +43,16 @@ async function getVLCEntries(req, res) {
       query += ` AND shift = ?`;
       params.push(shift);
     }
+    console.log('🔍 Query:', query);
+    console.log('🔍 Params:', params);
     const [rows] = await db.execute(query, params);
+    console.log('📤 Backend Response:', JSON.stringify({ success: true, data: rows }, null, 2));
     return res.status(200).json({ 
       success: true,
       data: rows
     });
   } catch (err) {
-    console.error('Error fetching VLC entries:', err);
+    console.error('❌ Error fetching VLC entries:', err);
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 }

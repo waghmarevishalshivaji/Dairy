@@ -113,6 +113,9 @@ async function getFarmerCollections(req, res) {
       let query = `
         SELECT 
           c.farmer_id,
+          c.type,
+          c.shift,
+          c.created_at,
           u.fullName,
           u.is_active,
           SUM(c.quantity) AS total_quantity
@@ -129,7 +132,7 @@ async function getFarmerCollections(req, res) {
         query += ` AND c.shift = ?`;
         params.push(shift);
       }
-      query += ` GROUP BY c.farmer_id, u.fullName, u.is_active ORDER BY c.farmer_id`;
+      query += ` GROUP BY c.farmer_id, c.type, c.shift, c.created_at, u.fullName, u.is_active ORDER BY c.created_at DESC`;
       console.log('🔍 Query:', query);
       console.log('🔍 Params:', params);
       const [rows] = await db.execute(query, params);
@@ -140,6 +143,9 @@ async function getFarmerCollections(req, res) {
           farmer_id: row.farmer_id,
           fullName: row.fullName,
           is_active: row.is_active,
+          type: row.type,
+          shift: row.shift,
+          created_at: row.created_at,
           quantity: parseFloat(row.total_quantity) || 0
         });
       });

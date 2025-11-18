@@ -14,10 +14,11 @@ async function getBranchByMobile(req, res) {
     }
     // Get dairy branches with usernames using JOIN
     const [dairyRows] = await db.execute(
-      'SELECT d.name, d.branchname, usr.username FROM dairy as d LEFT JOIN userDairy as ud ON ud.dairy_id = d.id LEFT JOIN users as usr ON usr.id = ud.user_id WHERE d.createdby = ?',
+      'SELECT d.id, d.name, d.branchname, usr.username FROM dairy as d LEFT JOIN userDairy as ud ON ud.dairy_id = d.id LEFT JOIN users as usr ON usr.id = ud.user_id WHERE d.createdby = ?',
       [userRows[0].id]
     );
     const branches = dairyRows.map(row => ({
+      dairy_id: row.id,
       username: row.username,
       name: row.name,
       branchname: row.branchname

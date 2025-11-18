@@ -73,4 +73,23 @@ async function setPassword(req, res) {
   }
 }
 
-module.exports = { createWebUser, loginWebUser, setPassword };
+// Update selected branches for web user
+async function updateBranches(req, res) {
+  const { mobile_number, dairy_ids } = req.body;
+  if (!mobile_number || !dairy_ids) {
+    return res.status(400).json({ success: false, message: 'Mobile number and dairy IDs are required' });
+  }
+  if (!Array.isArray(dairy_ids)) {
+    return res.status(400).json({ success: false, message: 'dairy_ids must be an array' });
+  }
+  try {
+    const branchesJson = JSON.stringify(dairy_ids);
+    await db.execute('UPDATE web_users SET branches = ? WHERE mobile_number = ?', [branchesJson, mobile_number]);
+    return res.status(200).json({ success: true, message: 'Branches updated successfully' });
+  } catch (err) {
+    console.error('Error updating branches:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+}
+
+module.exports = { createWebUser, loginWebUser, setPassword, updateBranches };

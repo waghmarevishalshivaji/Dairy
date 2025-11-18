@@ -24,14 +24,25 @@ async function createVLCEntry(req, res) {
 
 // Get VLC entries by vlc_id array
 async function getVLCEntries(req, res) {
-  const { vlc_ids } = req.body;
+  const { vlc_ids, date, shift } = req.body;
   if (!vlc_ids || !Array.isArray(vlc_ids) || vlc_ids.length === 0) {
     return res.status(400).json({ success: false, message: 'vlc_ids array is required' });
   }
+  if (!date) {
+    return res.status(400).json({ success: false, message: 'Date is required' });
+  }
+  if (!shift) {
+    return res.status(400).json({ success: false, message: 'Shift is required' });
+  }
   try {
     const placeholders = vlc_ids.map(() => '?').join(',');
-    const query = `SELECT * FROM vlc_collection_entry WHERE vlc_id IN (${placeholders})`;
-    const [rows] = await db.execute(query, vlc_ids);
+    let query = `SELECT * FROM vlc_collection_entry WHERE vlc_id IN (${placeholders}) AND DATE(date) = ?`;
+    const params = [...vlc_ids, date];
+    if (shift !== 'All') {
+      query += ` AND shift = ?`;
+      params.push(shift);
+    }
+    const [rows] = await db.execute(query, params);
     return res.status(200).json({ 
       success: true,
       data: rows

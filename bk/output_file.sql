@@ -219,3 +219,15 @@ CREATE TABLE vlc_collection_entry (
   snf DECIMAL(5,2) NOT NULL,
   clr DECIMAL(5,2) NOT NULL
 );
+
+DROP TABLE IF EXISTS `dispatch_entry`;
+CREATE TABLE dispatch_entry (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  date DATETIME NOT NULL,
+  weight DECIMAL(10,2) NOT NULL,
+  avg_fat DECIMAL(5,2) NOT NULL,
+  avg_snf DECIMAL(5,2) NOT NULL,
+  rate_per_liter DECIMAL(10,2) NOT NULL,
+  commission_amount_per_liter DECIMAL(10,2) NOT NULL,
+  total_amount DECIMAL(10,2) NOT NULL
+);

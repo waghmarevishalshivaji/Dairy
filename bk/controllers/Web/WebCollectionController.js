@@ -24,7 +24,6 @@ async function createVLCEntry(req, res) {
 
 // Get VLC entries by vlc_id array
 async function getVLCEntries(req, res) {
-  console.log('📥 Frontend Request:', JSON.stringify(req.body, null, 2));
   const { vlc_ids, date, shift } = req.body;
   if (!vlc_ids || !Array.isArray(vlc_ids) || vlc_ids.length === 0) {
     return res.status(400).json({ success: false, message: 'vlc_ids array is required' });
@@ -43,18 +42,37 @@ async function getVLCEntries(req, res) {
       query += ` AND shift = ?`;
       params.push(shift);
     }
-    console.log('🔍 Query:', query);
-    console.log('🔍 Params:', params);
     const [rows] = await db.execute(query, params);
-    console.log('📤 Backend Response:', JSON.stringify({ success: true, data: rows }, null, 2));
     return res.status(200).json({ 
       success: true,
       data: rows
     });
   } catch (err) {
-    console.error('❌ Error fetching VLC entries:', err);
+    console.error('Error fetching VLC entries:', err);
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 }
 
-module.exports = { createVLCEntry, getVLCEntries };
+// Create dispatch entry
+async function createDispatchEntry(req, res) {
+  const { date, weight, avg_fat, avg_snf, rate_per_liter, commission_amount_per_liter, total_amount } = req.body;
+  if (!date || !weight || !avg_fat || !avg_snf || !rate_per_liter || !commission_amount_per_liter || !total_amount) {
+    return res.status(400).json({ success: false, message: 'All fields are required' });
+  }
+  try {
+    const [result] = await db.execute(
+      'INSERT INTO dispatch_entry (date, weight, avg_fat, avg_snf, rate_per_liter, commission_amount_per_liter, total_amount) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [date, weight, avg_fat, avg_snf, rate_per_liter, commission_amount_per_liter, total_amount]
+    );
+    return res.status(201).json({ 
+      success: true, 
+      message: 'Dispatch entry created successfully',
+      id: result.insertId
+    });
+  } catch (err) {
+    console.error('Error creating dispatch entry:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+}
+
+module.exports = { createVLCEntry, getVLCEntries, createDispatchEntry };

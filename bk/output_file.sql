@@ -202,5 +202,6 @@ CREATE TABLE web_users (
   name VARCHAR(100) NOT NULL,
   email VARCHAR(100) NOT NULL,
   temp_pw VARCHAR(10) NOT NULL,
+  password VARCHAR(255) DEFAULT NULL,
   mobile_number VARCHAR(20) NOT NULL
 );

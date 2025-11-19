@@ -116,6 +116,11 @@ async function getFarmerCollections(req, res) {
           c.type,
           c.shift,
           c.created_at,
+          c.fat,
+          c.snf,
+          c.clr,
+          c.rate,
+          c.amount,
           u.fullName,
           u.is_active,
           SUM(c.quantity) AS total_quantity
@@ -132,7 +137,7 @@ async function getFarmerCollections(req, res) {
         query += ` AND c.shift = ?`;
         params.push(shift);
       }
-      query += ` GROUP BY c.farmer_id, c.type, c.shift, c.created_at, u.fullName, u.is_active ORDER BY c.created_at DESC`;
+      query += ` GROUP BY c.farmer_id, c.type, c.shift, c.created_at, c.fat, c.snf, c.clr, c.rate, c.amount, u.fullName, u.is_active ORDER BY c.created_at DESC`;
       console.log('🔍 Query:', query);
       console.log('🔍 Params:', params);
       const [rows] = await db.execute(query, params);
@@ -146,7 +151,12 @@ async function getFarmerCollections(req, res) {
           type: row.type,
           shift: row.shift,
           created_at: row.created_at,
-          quantity: parseFloat(row.total_quantity) || 0
+          quantity: parseFloat(row.total_quantity) || 0,
+          fat: parseFloat(row.fat) || 0,
+          snf: parseFloat(row.snf) || 0,
+          clr: parseFloat(row.clr) || 0,
+          rate: parseFloat(row.rate) || 0,
+          amount: parseFloat(row.amount) || 0
         });
       });
     }

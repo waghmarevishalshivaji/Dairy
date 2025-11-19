@@ -76,6 +76,7 @@ const webUserRoutes = require('./routes/webUserRoutes');
 const webBranchRoutes = require('./routes/Web/WebBranchRoutes');
 const webDashboardRoutes = require('./routes/Web/WebDashboardRoutes');
 const webCollectionRoutes = require('./routes/Web/WebCollectionRoutes');
+const webBillingRoutes = require('./routes/Web/WebBillingRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -109,6 +110,7 @@ app.use('/web-users', webUserRoutes);
 app.use('/web/branches', webBranchRoutes);
 app.use('/web/dashboard', webDashboardRoutes);
 app.use('/web/collection', webCollectionRoutes);
+app.use('/web/billing', webBillingRoutes);
 
 // Create HTTP server
 const server = http.createServer(app);

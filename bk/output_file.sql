@@ -231,3 +231,21 @@ CREATE TABLE dispatch_entry (
   commission_amount_per_liter DECIMAL(10,2) NOT NULL,
   total_amount DECIMAL(10,2) NOT NULL
 );
+
+DROP TABLE IF EXISTS `vlc_commission_entry`;
+CREATE TABLE vlc_commission_entry (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  vlcc VARCHAR(100) NOT NULL,
+  type VARCHAR(50) NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  effective_from DATE NOT NULL
+);
+
+DROP TABLE IF EXISTS `vlc_ts_entry`;
+CREATE TABLE vlc_ts_entry (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  vlc VARCHAR(100) NOT NULL,
+  kg_fat_rate DECIMAL(10,2) NOT NULL,
+  kg_snf_rate DECIMAL(10,2) NOT NULL,
+  effective_from DATE NOT NULL
+);

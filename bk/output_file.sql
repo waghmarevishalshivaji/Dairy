@@ -249,3 +249,20 @@ CREATE TABLE vlc_ts_entry (
   kg_snf_rate DECIMAL(10,2) NOT NULL,
   effective_from DATE NOT NULL
 );
+
+DROP TABLE IF EXISTS `settings`;
+CREATE TABLE settings (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  vlc VARCHAR(100) NOT NULL UNIQUE,
+  add_farmer TINYINT(1) DEFAULT 0,
+  rate_chart TINYINT(1) DEFAULT 0,
+  deduction TINYINT(1) DEFAULT 0,
+  payment_receipt TINYINT(1) DEFAULT 0,
+  generate_bill TINYINT(1) DEFAULT 0,
+  analyser TINYINT(1) DEFAULT 0,
+  weight_tier TINYINT(1) DEFAULT 0,
+  weight TINYINT(1) DEFAULT 0,
+  printer TINYINT(1) DEFAULT 0,
+  language VARCHAR(50) DEFAULT 'English',
+  report_language VARCHAR(50) DEFAULT 'English'
+);

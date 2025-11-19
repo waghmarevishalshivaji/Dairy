@@ -4,7 +4,15 @@ const db = require('../../config/db');
 async function getAllUsers(req, res) {
   try {
     const [dairyAdmins] = await db.execute('SELECT * FROM users WHERE role = ?', ['Dairyadmin']);
-    const [dairyManagers] = await db.execute('SELECT * FROM users WHERE role = ?', ['Dairymgr']);
+    
+    const [dairyManagersData] = await db.execute(`
+      SELECT u.*, d.*
+      FROM users u
+      LEFT JOIN userDairy ud ON u.id = ud.user_id
+      LEFT JOIN dairy d ON ud.dairy_id = d.id
+      WHERE u.role = ?
+    `, ['Dairymgr']);
+    
     const [farmers] = await db.execute('SELECT * FROM users WHERE role = ?', ['farmer']);
     const [webUsers] = await db.execute('SELECT * FROM web_users');
     
@@ -12,7 +20,7 @@ async function getAllUsers(req, res) {
       success: true,
       data: {
         dairyAdmins,
-        dairyManagers,
+        dairyManagers: dairyManagersData,
         farmers,
         webUsers
       }

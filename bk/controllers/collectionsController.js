@@ -325,9 +325,14 @@ async function createCollection(req, res) {
     );
 
     if (farmerRows.length > 0) {
-      const { expo_token, username } = farmerRows[0];
+      const { expo_token, username, fullName } = farmerRows[0];
+      
+      // Format date as DD-MM-YYYY
+      const dateObj = new Date(formattedIdtDateTime);
+      const formattedDate = `${String(dateObj.getDate()).padStart(2, '0')}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${dateObj.getFullYear()}`;
+      
       const title = "Milk Collection Update";
-      const message = `Dear ${username || "Farmer"}, your ${type} milk collection of ${quantity}L has been recorded successfully.`;
+      const message = `Date: ${formattedDate}\nCode: ${username}\nName: ${fullName || username}\nShift: ${shift}\nType: ${type}\nLiter: ${quantity}\nFat: ${fat}\nSNF: ${snf}\nRate: ${rate}\nAmount: ${amount.toFixed(2)}`;
 
       // Insert notification
       await db.execute(

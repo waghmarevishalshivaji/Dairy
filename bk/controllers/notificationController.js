@@ -42,18 +42,18 @@ async function sendNotification(req, res) {
 // Farmers fetch notifications
 async function getNotifications(req, res) {
   try {
-    const { dairy_id } = req.query;
-    if (!dairy_id) {
-      return res.status(400).json({ success: false, message: "dairy_id required" });
+    const { dairy_id, farmer_id } = req.query;
+    if (!dairy_id || !farmer_id) {
+      return res.status(400).json({ success: false, message: "dairy_id and farmer_id required" });
     }
 
     const [rows] = await db.execute(
       `SELECT id, dairy_id, farmer_id, title, message, created_at
        FROM notifications
-       WHERE dairy_id=?
+       WHERE dairy_id=? AND farmer_id=?
        ORDER BY created_at DESC
        LIMIT 50`,
-      [dairy_id]
+      [dairy_id, farmer_id]
     );
 
     res.json({ success: true, notifications: rows });

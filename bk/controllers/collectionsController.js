@@ -5453,7 +5453,7 @@ async function getBillingPeriodAmount(req, res) {
 
     // Build query
     let query = `
-      SELECT SUM(amount) as total_amount
+      SELECT SUM(amount) as total_amount, SUM(quantity) as total_quantity
       FROM collections
       WHERE dairy_id = ?
         AND farmer_id = ?
@@ -5475,7 +5475,8 @@ async function getBillingPeriodAmount(req, res) {
         end_date: endDate,
         days: billingDays
       },
-      total_amount: result[0].total_amount || 0
+      total_amount: result[0].total_amount || 0,
+      total_quantity: result[0].total_quantity || 0
     });
 
   } catch (err) {

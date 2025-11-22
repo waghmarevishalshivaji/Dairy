@@ -13,6 +13,7 @@ router.get('/:id', controller.getCollectionById);
 router.put('/:id', controller.updateCollection);
 router.delete('/:id', controller.deleteCollection);
 router.post("/update-rates-effective", controller.updateRatesByEffectiveDate);
+router.get('/billing-period-amount', controller.getBillingPeriodAmount);
 
 
 module.exports = router;

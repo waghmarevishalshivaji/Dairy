@@ -5406,6 +5406,89 @@ async function updateRatesByEffectiveDate(req, res) {
 }
 
 
+async function getBillingPeriodAmount(req, res) {
+  try {
+    const { farmer_id, dairy_id, type, date } = req.query;
+
+    if (!farmer_id || !dairy_id || !date) {
+      return res.status(400).json({
+        success: false,
+        message: "farmer_id, dairy_id, and date are required"
+      });
+    }
+
+    const givenDate = new Date(date);
+    const year = givenDate.getFullYear();
+    const month = givenDate.getMonth();
+    const day = givenDate.getDate();
+
+    // Get billing cycle days from dairy table
+    const [dairyRows] = await db.execute(
+      `SELECT days FROM dairy WHERE id = ?`,
+      [dairy_id]
+    );
+
+    if (!dairyRows.length) {
+      return res.status(404).json({
+        success: false,
+        message: "Dairy not found"
+      });
+    }
+
+    const billingDays = parseInt(dairyRows[0].days) || 10;
+    const monthEnd = new Date(year, month + 1, 0).getDate();
+
+    // Calculate which billing period the date falls into
+    let periodStart = 1;
+    let periodEnd = billingDays;
+
+    while (day > periodEnd && periodEnd < monthEnd) {
+      periodStart = periodEnd + 1;
+      periodEnd = Math.min(periodEnd + billingDays, monthEnd);
+    }
+
+    // Format dates
+    const startDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(periodStart).padStart(2, '0')}`;
+    const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(periodEnd).padStart(2, '0')}`;
+
+    // Build query
+    let query = `
+      SELECT SUM(amount) as total_amount
+      FROM collections
+      WHERE dairy_id = ?
+        AND farmer_id = ?
+        AND DATE(created_at) BETWEEN ? AND ?
+    `;
+    const params = [dairy_id, farmer_id, startDate, endDate];
+
+    if (type) {
+      query += ` AND type = ?`;
+      params.push(type);
+    }
+
+    const [result] = await db.execute(query, params);
+
+    res.status(200).json({
+      success: true,
+      billing_period: {
+        start_date: startDate,
+        end_date: endDate,
+        days: billingDays
+      },
+      total_amount: result[0].total_amount || 0
+    });
+
+  } catch (err) {
+    console.error("Error calculating billing period amount:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: err.message
+    });
+  }
+}
+
+
 module.exports = {
     getTodaysCollectionByFarmer,
     createCollection,
@@ -5416,5 +5499,6 @@ module.exports = {
     getCollectionBytab,
     getTodaysCollection,
     getTodaysCollectionfarmer,
-    updateRatesByEffectiveDate
+    updateRatesByEffectiveDate,
+    getBillingPeriodAmount
 };

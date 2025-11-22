@@ -4848,7 +4848,8 @@ async function getCollectionBytab(req, res) {
         amount: (record.quantity * record.rate).toFixed(2), // fixed: amount = qty * rate
         shift: record.shift,
         fname: record.fname,
-        uname : record.uname,
+        uname: record.uname,
+        created_at: record.created_at,
       });
     });
 

@@ -4551,13 +4551,10 @@ async function getTodaysCollectionfarmer(req, res) {
     let cycleStartDay = 1;
     let cycleEndDay = billingDays;
 
-    while (day > cycleEndDay) {
+    while (day > cycleEndDay && cycleEndDay < monthEnd) {
       cycleStartDay = cycleEndDay + 1;
-      cycleEndDay += billingDays;
+      cycleEndDay = Math.min(cycleEndDay + billingDays, monthEnd);
     }
-
-    // If we go past actual month end, stop at monthEnd
-    if (cycleEndDay > monthEnd) cycleEndDay = monthEnd;
 
     // Format final cycle range dates
     const fromDate = `${year}-${String(month + 1).padStart(2, "0")}-${String(

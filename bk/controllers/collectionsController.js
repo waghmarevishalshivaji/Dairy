@@ -4547,13 +4547,32 @@ async function getTodaysCollectionfarmer(req, res) {
     // 🧮 3️⃣ Calculate month end correctly (28/29/30/31)
     const monthEnd = new Date(year, month + 1, 0).getDate(); // last day of month
 
-    // 🧮 4️⃣ Determine current cycle start/end days
+    // 🧮 4️⃣ Calculate all billing periods for the month
+    const periods = [];
+    let start = 1;
+    
+    while (start <= monthEnd) {
+      let end = Math.min(start + billingDays - 1, monthEnd);
+      periods.push({ start, end });
+      start = end + 1;
+    }
+    
+    // If the last period has only 1 day, merge it with the previous period
+    if (periods.length > 1 && periods[periods.length - 1].end - periods[periods.length - 1].start === 0) {
+      const lastPeriod = periods.pop();
+      periods[periods.length - 1].end = lastPeriod.end;
+    }
+    
+    // Find which period the current day falls into
     let cycleStartDay = 1;
     let cycleEndDay = billingDays;
-
-    while (day > cycleEndDay && cycleEndDay < monthEnd) {
-      cycleStartDay = cycleEndDay + 1;
-      cycleEndDay = Math.min(cycleEndDay + billingDays, monthEnd);
+    
+    for (const period of periods) {
+      if (day >= period.start && day <= period.end) {
+        cycleStartDay = period.start;
+        cycleEndDay = period.end;
+        break;
+      }
     }
 
     // Format final cycle range dates
@@ -5435,13 +5454,32 @@ async function getBillingPeriodAmount(req, res) {
     const billingDays = parseInt(dairyRows[0].days) || 10;
     const monthEnd = new Date(year, month + 1, 0).getDate();
 
-    // Calculate which billing period the date falls into
+    // Calculate all billing periods for the month
+    const periods = [];
+    let start = 1;
+    
+    while (start <= monthEnd) {
+      let end = Math.min(start + billingDays - 1, monthEnd);
+      periods.push({ start, end });
+      start = end + 1;
+    }
+    
+    // If the last period has only 1 day, merge it with the previous period
+    if (periods.length > 1 && periods[periods.length - 1].end - periods[periods.length - 1].start === 0) {
+      const lastPeriod = periods.pop();
+      periods[periods.length - 1].end = lastPeriod.end;
+    }
+    
+    // Find which period the current day falls into
     let periodStart = 1;
     let periodEnd = billingDays;
-
-    while (day > periodEnd && periodEnd < monthEnd) {
-      periodStart = periodEnd + 1;
-      periodEnd = Math.min(periodEnd + billingDays, monthEnd);
+    
+    for (const period of periods) {
+      if (day >= period.start && day <= period.end) {
+        periodStart = period.start;
+        periodEnd = period.end;
+        break;
+      }
     }
 
     // Format dates

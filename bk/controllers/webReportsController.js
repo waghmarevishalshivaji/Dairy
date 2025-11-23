@@ -101,7 +101,7 @@ async function getCollectionsReport(req, res) {
   }
 }
 
-async function getVLCDifferenceReport(req, res) {
+asasync function getVLCDifferenceReport(req, res) {
   try {
     const { dairy_id, vlc_id, from, to, shift } = req.query;
 
@@ -285,7 +285,7 @@ async function getFarmerRemainingBalances(req, res) {
 
     // Find bills for the given date and dairy_id, ordered by period_start DESC
     const [bills] = await db.execute(
-      `SELECT b.farmer_id, b.advanced_remaining, b.other1_remaining, b.other2_remaining, 
+      `SELECT b.farmer_id, b.advance, b.other1_remaining, b.other2_remaining, 
               b.cattlefeed_remaining, b.period_start, b.period_end, b.status, b.is_finalized,
               u.fullName as farmer_name
        FROM bills b
@@ -303,7 +303,7 @@ async function getFarmerRemainingBalances(req, res) {
         data: bills.map(b => ({
           farmer_id: b.farmer_id,
           farmer_name: b.farmer_name,
-          advanced_remaining: Number(b.advanced_remaining || 0).toFixed(2),
+          advanced_remaining: Number(b.advance || 0).toFixed(2),
           other1_remaining: Number(b.other1_remaining || 0).toFixed(2),
           other2_remaining: Number(b.other2_remaining || 0).toFixed(2),
           cattlefeed_remaining: Number(b.cattlefeed_remaining || 0).toFixed(2)
@@ -313,7 +313,7 @@ async function getFarmerRemainingBalances(req, res) {
 
     // Otherwise, find the most recent finalized and paid bill
     const [previousBills] = await db.execute(
-      `SELECT b.farmer_id, b.advanced_remaining, b.other1_remaining, b.other2_remaining, 
+      `SELECT b.farmer_id, b.advance, b.other1_remaining, b.other2_remaining, 
               b.cattlefeed_remaining, b.period_start, b.period_end,
               u.fullName as farmer_name
        FROM bills b
@@ -337,7 +337,7 @@ async function getFarmerRemainingBalances(req, res) {
       data: previousBills.map(b => ({
         farmer_id: b.farmer_id,
         farmer_name: b.farmer_name,
-        advanced_remaining: Number(b.advanced_remaining || 0).toFixed(2),
+        advanced_remaining: Number(b.advance || 0).toFixed(2),
         other1_remaining: Number(b.other1_remaining || 0).toFixed(2),
         other2_remaining: Number(b.other2_remaining || 0).toFixed(2),
         cattlefeed_remaining: Number(b.cattlefeed_remaining || 0).toFixed(2)

@@ -272,7 +272,90 @@ async function getVLCDifferenceReport(req, res) {
   }
 }
 
+async function getFarmerRemainingBalances(req, res) {
+  try {
+    const { dairy_id, date } = req.query;
+
+    if (!dairy_id || !date) {
+      return res.status(400).json({
+        success: false,
+        message: 'dairy_id and date are required'
+      });
+    }
+
+    // Find bills for the given date and dairy_id, ordered by period_start DESC
+    const [bills] = await db.execute(
+      `SELECT b.farmer_id, b.advanced_remaining, b.other1_remaining, b.other2_remaining, 
+              b.cattlefeed_remaining, b.period_start, b.period_end, b.status, b.is_finalized,
+              u.fullName as farmer_name
+       FROM bills b
+       LEFT JOIN users u ON b.farmer_id = u.username AND b.dairy_id = u.dairy_id
+       WHERE b.dairy_id = ? AND ? BETWEEN b.period_start AND b.period_end
+       ORDER BY b.period_start DESC`,
+      [dairy_id, date]
+    );
+
+    // If current period bills are finalized and paid, return them
+    if (bills.length > 0 && bills[0].status === 'paid' && bills[0].is_finalized === 1) {
+      return res.status(200).json({
+        success: true,
+        message: 'Farmer remaining balances fetched successfully',
+        data: bills.map(b => ({
+          farmer_id: b.farmer_id,
+          farmer_name: b.farmer_name,
+          advanced_remaining: Number(b.advanced_remaining || 0).toFixed(2),
+          other1_remaining: Number(b.other1_remaining || 0).toFixed(2),
+          other2_remaining: Number(b.other2_remaining || 0).toFixed(2),
+          cattlefeed_remaining: Number(b.cattlefeed_remaining || 0).toFixed(2)
+        }))
+      });
+    }
+
+    // Otherwise, find the most recent finalized and paid bill
+    const [previousBills] = await db.execute(
+      `SELECT b.farmer_id, b.advanced_remaining, b.other1_remaining, b.other2_remaining, 
+              b.cattlefeed_remaining, b.period_start, b.period_end,
+              u.fullName as farmer_name
+       FROM bills b
+       LEFT JOIN users u ON b.farmer_id = u.username AND b.dairy_id = u.dairy_id
+       WHERE b.dairy_id = ? AND b.status = 'paid' AND b.is_finalized = 1 
+             AND b.period_end < ?
+       ORDER BY b.period_end DESC`,
+      [dairy_id, date]
+    );
+
+    if (previousBills.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No finalized bills found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Farmer remaining balances fetched successfully',
+      data: previousBills.map(b => ({
+        farmer_id: b.farmer_id,
+        farmer_name: b.farmer_name,
+        advanced_remaining: Number(b.advanced_remaining || 0).toFixed(2),
+        other1_remaining: Number(b.other1_remaining || 0).toFixed(2),
+        other2_remaining: Number(b.other2_remaining || 0).toFixed(2),
+        cattlefeed_remaining: Number(b.cattlefeed_remaining || 0).toFixed(2)
+      }))
+    });
+
+  } catch (err) {
+    console.error('Error fetching farmer remaining balances:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: err.message
+    });
+  }
+}
+
 module.exports = {
   getCollectionsReport,
-  getVLCDifferenceReport
+  getVLCDifferenceReport,
+  getFarmerRemainingBalances
 };

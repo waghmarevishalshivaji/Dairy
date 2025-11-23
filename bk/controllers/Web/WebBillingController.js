@@ -184,92 +184,56 @@ async function upsertBill(req, res) {
 // Get bill details
 async function getBillDetails(req, res) {
   try {
-    const { dairy_id, period_start, period_end } = req.query;
+    const { dairy_id, farmer_id, period_start, period_end } = req.query;
 
-    if (!dairy_id || !period_start || !period_end) {
+    if (!dairy_id || !farmer_id || !period_start || !period_end) {
       return res.status(400).json({
         success: false,
-        message: 'dairy_id, period_start, and period_end are required'
+        message: 'dairy_id, farmer_id, period_start, and period_end are required'
       });
     }
 
-    // Get all bills for the period
+    // Handle farmer_id (can be array or single value)
+    let farmerIds = [];
+    if (Array.isArray(farmer_id)) {
+      farmerIds = farmer_id;
+    } else if (typeof farmer_id === 'string' && farmer_id.includes(',')) {
+      farmerIds = farmer_id.split(',').map(id => id.trim());
+    } else {
+      farmerIds = [farmer_id];
+    }
+
+    // Get bills for specified farmers
+    const placeholders = farmerIds.map(() => '?').join(',');
     const [bills] = await db.execute(
       `SELECT b.farmer_id, b.advance_total, b.advance_remaining,
               b.cattlefeed_total, b.cattlefeed_remaining,
               b.other1_total, b.other1_remaining,
-              b.other2_total, b.other2_remaining,
-              u.fullName as farmer_name
+              b.other2_total, b.other2_remaining
        FROM bills b
-       LEFT JOIN users u ON b.farmer_id = u.username AND b.dairy_id = u.dairy_id
-       WHERE b.dairy_id = ? AND b.period_start = ? AND b.period_end = ?`,
-      [dairy_id, period_start, period_end]
+       WHERE b.dairy_id = ? AND b.farmer_id IN (${placeholders}) 
+             AND b.period_start = ? AND b.period_end = ?`,
+      [dairy_id, ...farmerIds, period_start, period_end]
     );
 
-    const result = [];
-
-    for (const bill of bills) {
-      // Get total amount from collections
-      const [collections] = await db.execute(
-        `SELECT SUM(amount) as bill_amount
-         FROM collections
-         WHERE farmer_id = ? AND dairy_id = ? 
-               AND DATE(created_at) BETWEEN ? AND ?`,
-        [bill.farmer_id, dairy_id, period_start, period_end]
-      );
-
-      // Get payments by type
-      const [payments] = await db.execute(
-        `SELECT payment_type, SUM(amount_taken) as amount_taken
-         FROM farmer_payments
-         WHERE farmer_id = ? AND dairy_id = ? 
-               AND DATE(date) BETWEEN ? AND ?
-         GROUP BY payment_type`,
-        [bill.farmer_id, dairy_id, period_start, period_end]
-      );
-
-      // Get total received
-      const [received] = await db.execute(
-        `SELECT SUM(received) as total_received
-         FROM farmer_payments
-         WHERE farmer_id = ? AND dairy_id = ? 
-               AND DATE(date) BETWEEN ? AND ?`,
-        [bill.farmer_id, dairy_id, period_start, period_end]
-      );
-
-      // Map payments by type
-      const paymentMap = {};
-      payments.forEach(p => {
-        paymentMap[p.payment_type] = Number(p.amount_taken || 0).toFixed(2);
-      });
-
-      result.push({
-        farmer_id: bill.farmer_id,
-        farmer_name: bill.farmer_name,
-        advance_total: Number(bill.advance_total || 0).toFixed(2),
-        advance_remaining: Number(bill.advance_remaining || 0).toFixed(2),
-        cattlefeed_total: Number(bill.cattlefeed_total || 0).toFixed(2),
-        cattlefeed_remaining: Number(bill.cattlefeed_remaining || 0).toFixed(2),
-        other1_total: Number(bill.other1_total || 0).toFixed(2),
-        other1_remaining: Number(bill.other1_remaining || 0).toFixed(2),
-        other2_total: Number(bill.other2_total || 0).toFixed(2),
-        other2_remaining: Number(bill.other2_remaining || 0).toFixed(2),
-        bill_amount: Number(collections[0]?.bill_amount || 0).toFixed(2),
-        payments: {
-          advance: paymentMap['advance'] || '0.00',
-          cattle_feed: paymentMap['cattle feed'] || '0.00',
-          other1: paymentMap['Other1'] || '0.00',
-          other2: paymentMap['Other2'] || '0.00'
-        },
-        total_received: Number(received[0]?.total_received || 0).toFixed(2)
-      });
-    }
+    const result = bills.map(bill => ({
+      farmer_id: bill.farmer_id,
+      advance_total: Number(bill.advance_total || 0).toFixed(2),
+      advance_remaining: Number(bill.advance_remaining || 0).toFixed(2),
+      cattlefeed_total: Number(bill.cattlefeed_total || 0).toFixed(2),
+      cattlefeed_remaining: Number(bill.cattlefeed_remaining || 0).toFixed(2),
+      other1_total: Number(bill.other1_total || 0).toFixed(2),
+      other1_remaining: Number(bill.other1_remaining || 0).toFixed(2),
+      other2_total: Number(bill.other2_total || 0).toFixed(2),
+      other2_remaining: Number(bill.other2_remaining || 0).toFixed(2)
+    }));
 
     res.status(200).json({
       success: true,
       message: 'Bill details fetched successfully',
       filters: {
         dairy_id,
+        farmer_id: farmerIds,
         period_start,
         period_end
       },

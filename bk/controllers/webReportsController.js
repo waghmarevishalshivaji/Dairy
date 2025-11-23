@@ -101,6 +101,112 @@ async function getCollectionsReport(req, res) {
   }
 }
 
+async function getVLCDifferenceReport(req, res) {
+  try {
+    const { dairy_id, vlc_id, from, to, shift } = req.query;
+
+    // Validate required fields
+    if (!dairy_id || !vlc_id || !from || !to) {
+      return res.status(400).json({
+        success: false,
+        message: 'dairy_id, vlc_id, from, and to are required'
+      });
+    }
+
+    // Query for VLC collection data
+    let vlcQuery = `
+      SELECT 
+        SUM(weight) as total_weight,
+        SUM(amount) as total_amount,
+        AVG(fat) as avg_fat,
+        AVG(snf) as avg_snf,
+        AVG(rate) as avg_rate
+      FROM vlc_collection_entry
+      WHERE vlc_id = ?
+        AND DATE(date) BETWEEN ? AND ?
+    `;
+    const vlcParams = [vlc_id, from, to];
+
+    if (shift && shift !== 'All') {
+      vlcQuery += ` AND shift = ?`;
+      vlcParams.push(shift);
+    }
+
+    // Query for dairy collection data
+    let dairyQuery = `
+      SELECT 
+        SUM(quantity) as total_weight,
+        SUM(amount) as total_amount,
+        AVG(fat) as avg_fat,
+        AVG(snf) as avg_snf,
+        AVG(rate) as avg_rate
+      FROM collections
+      WHERE dairy_id = ?
+        AND DATE(created_at) BETWEEN ? AND ?
+    `;
+    const dairyParams = [dairy_id, from, to];
+
+    if (shift && shift !== 'All') {
+      dairyQuery += ` AND shift = ?`;
+      dairyParams.push(shift);
+    }
+
+    // Execute both queries
+    const [vlcData] = await db.execute(vlcQuery, vlcParams);
+    const [dairyData] = await db.execute(dairyQuery, dairyParams);
+
+    const vlc = vlcData[0] || {};
+    const dairy = dairyData[0] || {};
+
+    // Calculate differences
+    const difference = {
+      weight: (Number(vlc.total_weight || 0) - Number(dairy.total_weight || 0)).toFixed(2),
+      amount: (Number(vlc.total_amount || 0) - Number(dairy.total_amount || 0)).toFixed(2),
+      fat: (Number(vlc.avg_fat || 0) - Number(dairy.avg_fat || 0)).toFixed(2),
+      snf: (Number(vlc.avg_snf || 0) - Number(dairy.avg_snf || 0)).toFixed(2),
+      rate: (Number(vlc.avg_rate || 0) - Number(dairy.avg_rate || 0)).toFixed(2)
+    };
+
+    res.status(200).json({
+      success: true,
+      message: 'VLC difference report fetched successfully',
+      filters: {
+        dairy_id,
+        vlc_id,
+        from,
+        to,
+        shift: shift || 'All'
+      },
+      data: {
+        vlc: {
+          total_weight: Number(vlc.total_weight || 0).toFixed(2),
+          total_amount: Number(vlc.total_amount || 0).toFixed(2),
+          avg_fat: Number(vlc.avg_fat || 0).toFixed(2),
+          avg_snf: Number(vlc.avg_snf || 0).toFixed(2),
+          avg_rate: Number(vlc.avg_rate || 0).toFixed(2)
+        },
+        dairy: {
+          total_weight: Number(dairy.total_weight || 0).toFixed(2),
+          total_amount: Number(dairy.total_amount || 0).toFixed(2),
+          avg_fat: Number(dairy.avg_fat || 0).toFixed(2),
+          avg_snf: Number(dairy.avg_snf || 0).toFixed(2),
+          avg_rate: Number(dairy.avg_rate || 0).toFixed(2)
+        },
+        difference
+      }
+    });
+
+  } catch (err) {
+    console.error('Error fetching VLC difference report:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: err.message
+    });
+  }
+}
+
 module.exports = {
-  getCollectionsReport
+  getCollectionsReport,
+  getVLCDifferenceReport
 };

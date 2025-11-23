@@ -398,9 +398,9 @@ async function getVLCCommissionReport(req, res) {
       const [commissions] = await db.execute(
         `SELECT amount, effective_from, type
          FROM vlc_commission_entry
-         WHERE vlcc = ? AND effective_from <= ?
+         WHERE vlcc = ?
          ORDER BY effective_from DESC`,
-        [vlcId, end_date]
+        [vlcId]
       );
 
       result.push({

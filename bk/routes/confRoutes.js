@@ -8,8 +8,18 @@ const path = require('path');
 
 // Configure multer for file uploads
 const upload = multer({
-    dest: 'uploads/',  // Folder to temporarily store uploaded files
-    // limits: { fileSize: 10 * 1024 * 1024 }  // Limit to 10MB file size
+    dest: 'uploads/',
+    fileFilter: (req, file, cb) => {
+        const allowedMimes = ['text/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+        const allowedExts = ['.csv', '.xls', '.xlsx'];
+        const ext = path.extname(file.originalname).toLowerCase();
+        
+        if (allowedMimes.includes(file.mimetype) || allowedExts.includes(ext)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only CSV and Excel files are allowed'));
+        }
+    }
 });
 
 const storage = multer.diskStorage({
@@ -63,7 +73,14 @@ router.post('/upload-image', uploadnew.single('image'), (req, res) => {
 
 
 
-router.post('/createrate', upload.single('csv'), confController.uploadRates);
+router.post('/createrate', (req, res, next) => {
+  upload.single('csv')(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ success: false, message: err.message || 'File upload error' });
+    }
+    next();
+  });
+}, confController.uploadRates);
 router.get('/get-rate', confController.getRate); // GET /get-rate?fat=3.5&snf=7.1
 router.get('/get-rate-names', confController.getRatename); // GET /get-rate?fat=3.5&snf=7.1
 router.get("/downloadrates", confController.downloadRateMatrix);

@@ -1,16 +1,25 @@
 const db = require('../config/db');
 const multer = require('multer');
-// const upload = multer({ dest: 'uploads/' }); // File will be temporarily stored in 'uploads/'
 const csvParser = require('csv-parser');
 const fs = require('fs');
 const path = require('path');
 const { Parser } = require("json2csv");
+const XLSX = require('xlsx');
 
 
 // Configure multer for file uploads
 const upload = multer({
-    dest: 'uploads/',  // Folder to temporarily store uploaded files
-    limits: { fileSize: 10 * 1024 * 1024 }  // Limit to 10MB file size
+    dest: 'uploads/',
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = ['.csv', '.xls', '.xlsx'];
+        const ext = path.extname(file.originalname).toLowerCase();
+        if (allowedTypes.includes(ext)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only CSV and Excel files are allowed'));
+        }
+    }
 });
 
 // async function createrate(req, res) {
@@ -793,46 +802,91 @@ const upload = multer({
 // };
 
 const uploadRates = async (req, res) => {
-  const filePath = req.file.path;
-  const { created_by, organisation_id, name, type, effective_date } = req.body;
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
 
-  const results = [];
+    const filePath = req.file.path;
+    const { created_by, organisation_id, name, type, effective_date } = req.body;
+    const fileExt = path.extname(req.file.originalname).toLowerCase();
 
-  fs.createReadStream(filePath)
-    .pipe(csvParser())
-    .on("data", (row) => {
-      const fat = parseFloat(row["FAT/SNF"]?.trim());
-      if (isNaN(fat)) return;
+    const results = [];
 
-      Object.keys(row).forEach((key) => {
-        if (key === "FAT/SNF") return;
+  const processData = async () => {
+    if (fileExt === '.csv') {
+      return new Promise((resolve, reject) => {
+        fs.createReadStream(filePath)
+          .pipe(csvParser())
+          .on("data", (row) => {
+            const fat = parseFloat(row["FAT/SNF"]?.trim());
+            if (isNaN(fat)) return;
 
-        const snf = parseFloat(key.trim());
-        const price = parseFloat(row[key].trim());
+            Object.keys(row).forEach((key) => {
+              if (key === "FAT/SNF") return;
+              const snf = parseFloat(key.trim());
+              const price = parseFloat(row[key].trim());
 
-        if (!isNaN(snf) && !isNaN(price)) {
-          results.push([
-            Number(fat.toFixed(1)),
-            Number(snf.toFixed(1)),
-            price,
-            type,
-            name,
-            created_by,
-            organisation_id,
-            effective_date || null,
-          ]);
-        }
+              if (!isNaN(snf) && !isNaN(price)) {
+                results.push([
+                  Number(fat.toFixed(1)),
+                  Number(snf.toFixed(1)),
+                  price,
+                  type,
+                  name,
+                  created_by,
+                  organisation_id,
+                  effective_date || null,
+                ]);
+              }
+            });
+          })
+          .on("end", resolve)
+          .on("error", reject);
       });
-    })
-    .on("end", async () => {
-      if (results.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: "No valid rate records found in CSV",
-        });
-      }
+    } else if (fileExt === '.xls' || fileExt === '.xlsx') {
+      const workbook = XLSX.readFile(filePath);
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-      try {
+      const headers = data[0];
+      for (let i = 1; i < data.length; i++) {
+        const row = data[i];
+        const fat = parseFloat(row[0]);
+        if (isNaN(fat)) continue;
+
+        for (let j = 1; j < row.length; j++) {
+          const snf = parseFloat(headers[j]);
+          const price = parseFloat(row[j]);
+
+          if (!isNaN(snf) && !isNaN(price)) {
+            results.push([
+              Number(fat.toFixed(1)),
+              Number(snf.toFixed(1)),
+              price,
+              type,
+              name,
+              created_by,
+              organisation_id,
+              effective_date || null,
+            ]);
+          }
+        }
+      }
+    }
+  };
+
+  try {
+    await processData();
+    if (results.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid rate records found in file",
+      });
+    }
+
+    try {
         // 🧹 Remove old rates with same name/type/org
         await db.query(
           "DELETE FROM rate WHERE organisation_id=? AND type=? AND name=?",
@@ -958,26 +1012,41 @@ const uploadRates = async (req, res) => {
           updatedCollections += res3.affectedRows || 0;
         }
 
-        res.json({
-          success: true,
-          message:
-            "Rates uploaded successfully and collections updated (fat/snf normalized)",
-          inserted: results.length,
-          updatedCollections,
-          organisation_id,
-          type,
-          name,
-          effective_date: effective_date || null,
-        });
-      } catch (err) {
-        console.error("Error processing rates:", err);
-        res.status(500).json({
-          success: false,
-          message: "Database error while processing rate upload",
-          error: err.message,
-        });
-      }
+      res.json({
+        success: true,
+        message:
+          "Rates uploaded successfully and collections updated (fat/snf normalized)",
+        inserted: results.length,
+        updatedCollections,
+        organisation_id,
+        type,
+        name,
+        effective_date: effective_date || null,
+      });
+    } catch (err) {
+      console.error("Error processing rates:", err);
+      res.status(500).json({
+        success: false,
+        message: "Database error while processing rate upload",
+        error: err.message,
+      });
+    }
+  } catch (err) {
+    console.error("Error reading file:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Error reading uploaded file",
+      error: err.message,
     });
+  } finally {
+    try {
+      if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+    } catch (cleanupErr) {
+      console.error("Error cleaning up file:", cleanupErr);
+    }
+  }
 };
 
 

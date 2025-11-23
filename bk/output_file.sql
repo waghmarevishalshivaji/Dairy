@@ -217,7 +217,9 @@ CREATE TABLE vlc_collection_entry (
   weight DECIMAL(10,2) NOT NULL,
   fat DECIMAL(5,2) NOT NULL,
   snf DECIMAL(5,2) NOT NULL,
-  clr DECIMAL(5,2) NOT NULL
+  clr DECIMAL(5,2) NOT NULL,
+  rate DECIMAL(10,2) NOT NULL,
+  amount DECIMAL(10,2) NOT NULL
 );
 
 DROP TABLE IF EXISTS `dispatch_entry`;

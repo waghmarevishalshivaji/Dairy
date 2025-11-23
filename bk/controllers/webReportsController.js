@@ -136,7 +136,6 @@ async function getVLCDifferenceReport(req, res) {
     while (currentDate <= toDate) {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
-      const day = currentDate.getDate();
       const monthEnd = new Date(year, month + 1, 0).getDate();
 
       // Calculate all periods for the month
@@ -154,29 +153,25 @@ async function getVLCDifferenceReport(req, res) {
         monthPeriods[monthPeriods.length - 1].end = lastPeriod.end;
       }
 
-      // Find which period the current day falls into
+      // Add all periods that overlap with date range
       for (const period of monthPeriods) {
-        if (day >= period.start && day <= period.end) {
-          const periodStart = `${year}-${String(month + 1).padStart(2, '0')}-${String(period.start).padStart(2, '0')}`;
-          const periodEnd = `${year}-${String(month + 1).padStart(2, '0')}-${String(period.end).padStart(2, '0')}`;
+        const periodStart = `${year}-${String(month + 1).padStart(2, '0')}-${String(period.start).padStart(2, '0')}`;
+        const periodEnd = `${year}-${String(month + 1).padStart(2, '0')}-${String(period.end).padStart(2, '0')}`;
+        
+        const pStart = new Date(periodStart);
+        const pEnd = new Date(periodEnd);
+        
+        if (pEnd >= fromDate && pStart <= toDate) {
+          const actualStart = pStart < fromDate ? from : periodStart;
+          const actualEnd = pEnd > toDate ? to : periodEnd;
           
-          // Check if this period overlaps with our date range
-          const pStart = new Date(periodStart);
-          const pEnd = new Date(periodEnd);
-          
-          if (pEnd >= fromDate && pStart <= toDate) {
-            const actualStart = pStart < fromDate ? from : periodStart;
-            const actualEnd = pEnd > toDate ? to : periodEnd;
-            
-            if (!periods.find(p => p.start === actualStart && p.end === actualEnd)) {
-              periods.push({
-                start: actualStart,
-                end: actualEnd,
-                label: `${period.start}-${period.end}`
-              });
-            }
+          if (!periods.find(p => p.start === actualStart && p.end === actualEnd)) {
+            periods.push({
+              start: actualStart,
+              end: actualEnd,
+              label: `${period.start}-${period.end}`
+            });
           }
-          break;
         }
       }
 

@@ -306,7 +306,11 @@ async function getFarmerRemainingBalances(req, res) {
           advance_remaining: Number(b.advance_remaining || 0).toFixed(2),
           other1_remaining: Number(b.other1_remaining || 0).toFixed(2),
           other2_remaining: Number(b.other2_remaining || 0).toFixed(2),
-          cattlefeed_remaining: Number(b.cattlefeed_remaining || 0).toFixed(2)
+          cattlefeed_remaining: Number(b.cattlefeed_remaining || 0).toFixed(2),
+          period_start: b.period_start,
+          period_end: b.period_end,
+          status: b.status,
+          is_finalized: b.is_finalized
         }))
       });
     }
@@ -314,7 +318,7 @@ async function getFarmerRemainingBalances(req, res) {
     // Otherwise, find the most recent finalized and paid bill
     const [previousBills] = await db.execute(
       `SELECT b.farmer_id, b.advance_remaining, b.other1_remaining, b.other2_remaining, 
-              b.cattlefeed_remaining, b.period_start, b.period_end,
+              b.cattlefeed_remaining, b.period_start, b.period_end, b.status, b.is_finalized,
               u.fullName as farmer_name
        FROM bills b
        LEFT JOIN users u ON b.farmer_id = u.username AND b.dairy_id = u.dairy_id
@@ -340,7 +344,11 @@ async function getFarmerRemainingBalances(req, res) {
         advance_remaining: Number(b.advance_remaining || 0).toFixed(2),
         other1_remaining: Number(b.other1_remaining || 0).toFixed(2),
         other2_remaining: Number(b.other2_remaining || 0).toFixed(2),
-        cattlefeed_remaining: Number(b.cattlefeed_remaining || 0).toFixed(2)
+        cattlefeed_remaining: Number(b.cattlefeed_remaining || 0).toFixed(2),
+        period_start: b.period_start,
+        period_end: b.period_end,
+        status: b.status,
+        is_finalized: b.is_finalized
       }))
     });
 

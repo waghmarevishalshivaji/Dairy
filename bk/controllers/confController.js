@@ -1012,25 +1012,25 @@ const uploadRates = async (req, res) => {
           updatedCollections += res3.affectedRows || 0;
         }
 
-      res.json({
-        success: true,
-        message:
-          "Rates uploaded successfully and collections updated (fat/snf normalized)",
-        inserted: results.length,
-        updatedCollections,
-        organisation_id,
-        type,
-        name,
-        effective_date: effective_date || null,
-      });
-    } catch (err) {
-      console.error("Error processing rates:", err);
-      res.status(500).json({
-        success: false,
-        message: "Database error while processing rate upload",
-        error: err.message,
-      });
-    }
+        res.json({
+          success: true,
+          message:
+            "Rates uploaded successfully and collections updated (fat/snf normalized)",
+          inserted: results.length,
+          updatedCollections,
+          organisation_id,
+          type,
+          name,
+          effective_date: effective_date || null,
+        });
+      } catch (err) {
+        console.error("Error processing rates:", err);
+        res.status(500).json({
+          success: false,
+          message: "Database error while processing rate upload",
+          error: err.message,
+        });
+      }
   } catch (err) {
     console.error("Error reading file:", err);
     return res.status(500).json({
@@ -1046,6 +1046,10 @@ const uploadRates = async (req, res) => {
     } catch (cleanupErr) {
       console.error("Error cleaning up file:", cleanupErr);
     }
+  }
+  } catch (err) {
+    console.error('Unexpected error in uploadRates:', err);
+    return res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
 };
 

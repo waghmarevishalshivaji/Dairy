@@ -11,4 +11,7 @@ router.get('/vlc-difference', webReportsController.getVLCDifferenceReport);
 // GET /api/webreports/farmer-balances?dairy_id=1&date=2025-11-23
 router.get('/farmer-balances', webReportsController.getFarmerRemainingBalances);
 
+// GET /api/webreports/vlc-commission?vlc_id=500001&start_date=2025-11-01&end_date=2025-11-30
+router.get('/vlc-commission', webReportsController.getVLCCommissionReport);
+
 module.exports = router;

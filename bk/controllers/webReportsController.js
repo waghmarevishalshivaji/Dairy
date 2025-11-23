@@ -362,8 +362,80 @@ async function getFarmerRemainingBalances(req, res) {
   }
 }
 
+async function getVLCCommissionReport(req, res) {
+  try {
+    const { vlc_id, start_date, end_date } = req.query;
+
+    if (!vlc_id || !start_date || !end_date) {
+      return res.status(400).json({
+        success: false,
+        message: 'vlc_id, start_date, and end_date are required'
+      });
+    }
+
+    // Handle vlc_id (can be array or single value)
+    let vlcIds = [];
+    if (Array.isArray(vlc_id)) {
+      vlcIds = vlc_id;
+    } else if (typeof vlc_id === 'string' && vlc_id.includes(',')) {
+      vlcIds = vlc_id.split(',').map(id => id.trim());
+    } else {
+      vlcIds = [vlc_id];
+    }
+
+    const result = [];
+
+    for (const vlcId of vlcIds) {
+      // Get total quantity from collections table
+      const [collections] = await db.execute(
+        `SELECT SUM(quantity) as total_quantity
+         FROM collections
+         WHERE dairy_id = ? AND DATE(created_at) BETWEEN ? AND ?`,
+        [vlcId, start_date, end_date]
+      );
+
+      // Get latest commission entry
+      const [commission] = await db.execute(
+        `SELECT commission_rate, effective_date
+         FROM vlc_commission_entry
+         WHERE vlcc = ? AND type = 'Commission' AND effective_date <= ?
+         ORDER BY effective_date DESC
+         LIMIT 1`,
+        [vlcId, end_date]
+      );
+
+      result.push({
+        vlc_id: vlcId,
+        total_quantity: Number(collections[0]?.total_quantity || 0).toFixed(2),
+        commission_rate: commission[0] ? Number(commission[0].commission_rate || 0).toFixed(2) : '0.00',
+        effective_date: commission[0]?.effective_date || null
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'VLC commission report fetched successfully',
+      filters: {
+        vlc_id: vlcIds,
+        start_date,
+        end_date
+      },
+      data: result
+    });
+
+  } catch (err) {
+    console.error('Error fetching VLC commission report:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: err.message
+    });
+  }
+}
+
 module.exports = {
   getCollectionsReport,
   getVLCDifferenceReport,
-  getFarmerRemainingBalances
+  getFarmerRemainingBalances,
+  getVLCCommissionReport
 };

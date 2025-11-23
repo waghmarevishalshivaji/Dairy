@@ -394,21 +394,23 @@ async function getVLCCommissionReport(req, res) {
         [vlcId, start_date, end_date]
       );
 
-      // Get latest commission entry
-      const [commission] = await db.execute(
-        `SELECT commission_rate, effective_date
+      // Get all commission entries
+      const [commissions] = await db.execute(
+        `SELECT rate, effective_date, type
          FROM vlc_commission_entry
-         WHERE vlcc = ? AND type = 'Commission' AND effective_date <= ?
-         ORDER BY effective_date DESC
-         LIMIT 1`,
+         WHERE vlcc = ? AND effective_date <= ?
+         ORDER BY effective_date DESC`,
         [vlcId, end_date]
       );
 
       result.push({
         vlc_id: vlcId,
         total_quantity: Number(collections[0]?.total_quantity || 0).toFixed(2),
-        commission_rate: commission[0] ? Number(commission[0].commission_rate || 0).toFixed(2) : '0.00',
-        effective_date: commission[0]?.effective_date || null
+        commissions: commissions.map(c => ({
+          type: c.type,
+          rate: Number(c.rate || 0).toFixed(2),
+          effective_date: c.effective_date
+        }))
       });
     }
 

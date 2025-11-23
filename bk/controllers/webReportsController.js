@@ -127,56 +127,14 @@ async function getVLCDifferenceReport(req, res) {
 
     const billingDays = dairyInfo[0].days || 10;
 
-    // Calculate billing periods
+    // Generate periods for each individual date
+    const periods = [];
     const fromDate = new Date(from);
     const toDate = new Date(to);
-    const periods = [];
-
-    let currentDate = new Date(fromDate);
-    while (currentDate <= toDate) {
-      const year = currentDate.getFullYear();
-      const month = currentDate.getMonth();
-      const monthEnd = new Date(year, month + 1, 0).getDate();
-
-      // Calculate all periods for the month
-      const monthPeriods = [];
-      let start = 1;
-      while (start <= monthEnd) {
-        let end = Math.min(start + billingDays - 1, monthEnd);
-        monthPeriods.push({ start, end });
-        start = end + 1;
-      }
-
-      // Merge last period if it's only 1 day
-      if (monthPeriods.length > 1 && monthPeriods[monthPeriods.length - 1].end - monthPeriods[monthPeriods.length - 1].start === 0) {
-        const lastPeriod = monthPeriods.pop();
-        monthPeriods[monthPeriods.length - 1].end = lastPeriod.end;
-      }
-
-      // Add all periods that overlap with date range
-      for (const period of monthPeriods) {
-        const periodStart = `${year}-${String(month + 1).padStart(2, '0')}-${String(period.start).padStart(2, '0')}`;
-        const periodEnd = `${year}-${String(month + 1).padStart(2, '0')}-${String(period.end).padStart(2, '0')}`;
-        
-        const pStart = new Date(periodStart);
-        const pEnd = new Date(periodEnd);
-        
-        if (pEnd >= fromDate && pStart <= toDate) {
-          const actualStart = pStart < fromDate ? from : periodStart;
-          const actualEnd = pEnd > toDate ? to : periodEnd;
-          
-          if (!periods.find(p => p.start === actualStart && p.end === actualEnd)) {
-            periods.push({
-              start: actualStart,
-              end: actualEnd,
-              label: `${period.start}-${period.end}`
-            });
-          }
-        }
-      }
-
-      // Move to next month
-      currentDate = new Date(year, month + 1, 1);
+    
+    for (let d = new Date(fromDate); d <= toDate; d.setDate(d.getDate() + 1)) {
+      const dateStr = d.toISOString().split('T')[0];
+      periods.push({ start: dateStr, end: dateStr });
     }
 
     // Fetch data for each period
@@ -223,7 +181,7 @@ async function getVLCDifferenceReport(req, res) {
       const dairy = dairyData[0] || {};
 
       result.push({
-        period: `${period.start} to ${period.end}`,
+        period: period.start,
         vlc: {
           total_weight: Number(vlc.total_weight || 0).toFixed(2),
           total_amount: Number(vlc.total_amount || 0).toFixed(2),

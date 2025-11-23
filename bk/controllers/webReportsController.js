@@ -396,10 +396,10 @@ async function getVLCCommissionReport(req, res) {
 
       // Get all commission entries
       const [commissions] = await db.execute(
-        `SELECT amount, effective_date, type
+        `SELECT amount, effective_from, type
          FROM vlc_commission_entry
-         WHERE vlcc = ? AND effective_date <= ?
-         ORDER BY effective_date DESC`,
+         WHERE vlcc = ? AND effective_from <= ?
+         ORDER BY effective_from DESC`,
         [vlcId, end_date]
       );
 
@@ -409,7 +409,7 @@ async function getVLCCommissionReport(req, res) {
         commissions: commissions.map(c => ({
           type: c.type,
           amount: Number(c.amount || 0).toFixed(2),
-          effective_date: c.effective_date
+          effective_from: c.effective_from
         }))
       });
     }

@@ -101,7 +101,7 @@ async function getCollectionsReport(req, res) {
   }
 }
 
-asasync function getVLCDifferenceReport(req, res) {
+async function getVLCDifferenceReport(req, res) {
   try {
     const { dairy_id, vlc_id, from, to, shift } = req.query;
 

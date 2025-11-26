@@ -182,6 +182,7 @@ async function getVLCDifferenceReport(req, res) {
 
       result.push({
         period: period.start,
+        shift: shift || 'All',
         vlc: {
           total_weight: Number(vlc.total_weight || 0).toFixed(2),
           total_amount: Number(vlc.total_amount || 0).toFixed(2),

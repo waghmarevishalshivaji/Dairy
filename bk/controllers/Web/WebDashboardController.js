@@ -62,6 +62,7 @@ async function getCollectionsSummary(req, res) {
     for (const dairy_id of branches) {
       let query = `
         SELECT 
+          COUNT(DISTINCT farmer_id) AS total_farmers,
           SUM(quantity) AS total_quantity,
           SUM(quantity * fat) AS weighted_fat,
           SUM(quantity * snf) AS weighted_snf,
@@ -77,15 +78,19 @@ async function getCollectionsSummary(req, res) {
       const [rows] = await db.execute(query, params);
       const row = rows[0];
       const totalQty = parseFloat(row.total_quantity) || 0;
-      const avgFat = totalQty > 0 ? (parseFloat(row.weighted_fat) / totalQty).toFixed(2) : 0;
-      const avgSnf = totalQty > 0 ? (parseFloat(row.weighted_snf) / totalQty).toFixed(2) : 0;
-      results.push({
-        dairy_id,
-        quantity: totalQty,
-        fat: parseFloat(avgFat),
-        snf: parseFloat(avgSnf),
-        amount: parseFloat(row.total_amount) || 0
-      });
+      
+      if (totalQty > 0) {
+        const avgFat = (parseFloat(row.weighted_fat) / totalQty).toFixed(2);
+        const avgSnf = (parseFloat(row.weighted_snf) / totalQty).toFixed(2);
+        results.push({
+          dairy_id,
+          quantity: totalQty,
+          fat: parseFloat(avgFat),
+          snf: parseFloat(avgSnf),
+          amount: parseFloat(row.total_amount) || 0,
+          farmers: parseInt(row.total_farmers) || 0
+        });
+      }
     }
     return res.status(200).json({ 
       success: true,

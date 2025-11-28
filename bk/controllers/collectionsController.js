@@ -4527,12 +4527,15 @@ async function getTodaysCollectionfarmer(req, res) {
   let { type, dairy_id, date, farmer_id } = req.query;
 
   try {
-    if (!dairy_id || !farmer_id) {
+    if (!dairy_id) {
       return res.status(400).json({
         success: false,
-        message: "dairy_id and farmer_id are required",
+        message: "dairy_id is required",
       });
     }
+
+    // If farmer_id not provided, return all farmers data
+    const isAllFarmers = !farmer_id;
 
     // 🧾 1️⃣ Setup date info
     const today = new Date();
@@ -4589,31 +4592,45 @@ async function getTodaysCollectionfarmer(req, res) {
     ).padStart(2, "0")}`;
 
     // 🧾 5️⃣ Fetch total milk and payments in that cycle
-    const [afterTotals] = await db.execute(
-      `SELECT 
+    let collectionsQuery = `SELECT 
         SUM(quantity) AS total_liters,
         SUM(quantity * rate) AS milk_total,
         ROUND(AVG(fat),2) AS avg_fat,
         ROUND(AVG(snf),2) AS avg_snf,
         ROUND(AVG(clr),2) AS avg_clr
        FROM collections
-       WHERE dairy_id=? AND farmer_id=? 
-         AND DATE(created_at) BETWEEN ? AND ?`,
-      [dairy_id, farmer_id, fromDate, toDate]
-    );
+       WHERE dairy_id=?`;
+    let collectionsParams = [dairy_id];
+    
+    if (!isAllFarmers) {
+      collectionsQuery += ` AND farmer_id=?`;
+      collectionsParams.push(farmer_id);
+    }
+    
+    collectionsQuery += ` AND DATE(created_at) BETWEEN ? AND ?`;
+    collectionsParams.push(fromDate, toDate);
+    
+    const [afterTotals] = await db.execute(collectionsQuery, collectionsParams);
 
-    const [deductionsRows] = await db.execute(
-      `SELECT 
+    let paymentsQuery = `SELECT 
          SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) AS advance,
          SUM(CASE WHEN payment_type='cattle feed' THEN amount_taken ELSE 0 END) AS cattle_feed,
          SUM(CASE WHEN payment_type='Other1' THEN amount_taken ELSE 0 END) AS other1,
          SUM(CASE WHEN payment_type='Other2' THEN amount_taken ELSE 0 END) AS other2,
          SUM(amount_taken) AS total_payments
        FROM farmer_payments
-       WHERE dairy_id=? AND farmer_id=? 
-         AND DATE(date) BETWEEN ? AND ?`,
-      [dairy_id, farmer_id, fromDate, toDate]
-    );
+       WHERE dairy_id=?`;
+    let paymentsParams = [dairy_id];
+    
+    if (!isAllFarmers) {
+      paymentsQuery += ` AND farmer_id=?`;
+      paymentsParams.push(farmer_id);
+    }
+    
+    paymentsQuery += ` AND DATE(date) BETWEEN ? AND ?`;
+    paymentsParams.push(fromDate, toDate);
+    
+    const [deductionsRows] = await db.execute(paymentsQuery, paymentsParams);
 
     const c = afterTotals[0] || {};
     const d = deductionsRows[0] || {};
@@ -4645,9 +4662,14 @@ async function getTodaysCollectionfarmer(req, res) {
       FROM collections
       WHERE DATE(created_at) = ?
         AND dairy_id = ?
-        AND farmer_id = ?
     `;
-    const params = [reportDate, dairy_id, farmer_id];
+    const params = [reportDate, dairy_id];
+    
+    if (!isAllFarmers) {
+      query += ` AND farmer_id = ?`;
+      params.push(farmer_id);
+    }
+    
     if (type && type !== "All") {
       query += ` AND type = ?`;
       params.push(type);
@@ -4656,8 +4678,7 @@ async function getTodaysCollectionfarmer(req, res) {
     const [rows] = await db.execute(query, params);
 
     // 🧾 7️⃣ Daily payments
-    const [paymentRows] = await db.execute(
-      `SELECT 
+    let dailyPaymentsQuery = `SELECT 
          SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) AS advance,
          SUM(CASE WHEN payment_type='cattle feed' THEN amount_taken ELSE 0 END) AS cattle_feed,
          SUM(CASE WHEN payment_type='Other1' THEN amount_taken ELSE 0 END) AS other1,
@@ -4665,9 +4686,18 @@ async function getTodaysCollectionfarmer(req, res) {
          SUM(amount_taken) AS total_deductions,
          SUM(received) AS total_received
        FROM farmer_payments
-       WHERE dairy_id=? AND farmer_id=? AND DATE(date)=?`,
-      [dairy_id, farmer_id, reportDate]
-    );
+       WHERE dairy_id=?`;
+    let dailyPaymentsParams = [dairy_id];
+    
+    if (!isAllFarmers) {
+      dailyPaymentsQuery += ` AND farmer_id=?`;
+      dailyPaymentsParams.push(farmer_id);
+    }
+    
+    dailyPaymentsQuery += ` AND DATE(date)=?`;
+    dailyPaymentsParams.push(reportDate);
+    
+    const [paymentRows] = await db.execute(dailyPaymentsQuery, dailyPaymentsParams);
     const payments = paymentRows[0] || {};
 
     // 📊 8️⃣ Group by shift

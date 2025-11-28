@@ -388,9 +388,139 @@ async function getVLCCommissionReport(req, res) {
   }
 }
 
+async function getFarmerWiseCollectionReport(req, res) {
+  try {
+    const { dairy_id, from, to, farmer_id } = req.query;
+
+    if (!dairy_id || !from || !to) {
+      return res.status(400).json({
+        success: false,
+        message: 'dairy_id, from, and to are required'
+      });
+    }
+
+    // Get unique farmer IDs
+    let farmerQuery = `SELECT DISTINCT farmer_id FROM collections WHERE dairy_id = ? AND DATE(created_at) BETWEEN ? AND ?`;
+    let farmerParams = [dairy_id, from, to];
+    
+    if (farmer_id) {
+      farmerQuery += ` AND farmer_id = ?`;
+      farmerParams.push(farmer_id);
+    }
+    
+    const [farmers] = await db.execute(farmerQuery, farmerParams);
+    const farmersData = [];
+
+    for (const farmer of farmers) {
+      const fid = farmer.farmer_id;
+
+      // Get collections
+      const [collections] = await db.execute(
+        `SELECT id, shift, type, quantity, fat, snf, clr, rate, (quantity * rate) as amount, created_at
+         FROM collections
+         WHERE dairy_id = ? AND farmer_id = ? AND DATE(created_at) BETWEEN ? AND ?
+         ORDER BY shift, created_at`,
+        [dairy_id, fid, from, to]
+      );
+
+      // Get payments
+      const [payments] = await db.execute(
+        `SELECT 
+           SUM(CASE WHEN payment_type='advance' THEN amount_taken ELSE 0 END) AS advance,
+           SUM(CASE WHEN payment_type='cattle feed' THEN amount_taken ELSE 0 END) AS cattle_feed,
+           SUM(CASE WHEN payment_type='Other1' THEN amount_taken ELSE 0 END) AS other1,
+           SUM(CASE WHEN payment_type='Other2' THEN amount_taken ELSE 0 END) AS other2,
+           SUM(amount_taken) AS total_deductions,
+           SUM(received) AS total_received
+         FROM farmer_payments
+         WHERE dairy_id = ? AND farmer_id = ? AND DATE(date) BETWEEN ? AND ?`,
+        [dairy_id, fid, from, to]
+      );
+
+      const payment = payments[0] || {};
+
+      // Group by shift
+      const grouped = { morning: [], evening: [] };
+      collections.forEach((r) => {
+        const entry = {
+          id: r.id,
+          type: r.type,
+          shift: r.shift,
+          quantity: Number(r.quantity),
+          fat: Number(r.fat),
+          snf: Number(r.snf),
+          clr: Number(r.clr),
+          rate: Number(r.rate),
+          amount: Number(r.amount),
+          created_at: r.created_at,
+        };
+        if (r.shift.toLowerCase() === 'morning') grouped.morning.push(entry);
+        if (r.shift.toLowerCase() === 'evening') grouped.evening.push(entry);
+      });
+
+      const calcShiftTotals = (entries) => {
+        if (!entries.length) return { total_quantity: 0, avg_fat: 0, avg_snf: 0, avg_clr: 0, total_amount: 0 };
+        const totalQty = entries.reduce((a, b) => a + b.quantity, 0);
+        const totalAmount = entries.reduce((a, b) => a + b.amount, 0);
+        return {
+          total_quantity: totalQty,
+          avg_fat: (entries.reduce((a, b) => a + b.fat, 0) / entries.length).toFixed(2),
+          avg_snf: (entries.reduce((a, b) => a + b.snf, 0) / entries.length).toFixed(2),
+          avg_clr: (entries.reduce((a, b) => a + b.clr, 0) / entries.length).toFixed(2),
+          total_amount: totalAmount,
+        };
+      };
+
+      const morningTotals = calcShiftTotals(grouped.morning);
+      const eveningTotals = calcShiftTotals(grouped.evening);
+      const totalQty = morningTotals.total_quantity + eveningTotals.total_quantity;
+      const totalAmount = morningTotals.total_amount + eveningTotals.total_amount;
+      const dailyAvgFat = (Number(morningTotals.avg_fat) + Number(eveningTotals.avg_fat)) / 2 || 0;
+
+      const deductions = {
+        advance: Number(payment.advance) || 0,
+        cattle_feed: Number(payment.cattle_feed) || 0,
+        other1: Number(payment.other1) || 0,
+        other2: Number(payment.other2) || 0,
+        total: Number(payment.total_deductions) || 0,
+      };
+
+      const netAmount = totalAmount - deductions.total + (Number(payment.total_received) || 0);
+
+      farmersData.push({
+        farmer_id: fid,
+        morning: { shift: 'Morning', entries: grouped.morning, totals: morningTotals },
+        evening: { shift: 'Evening', entries: grouped.evening, totals: eveningTotals },
+        overall: { totalQty, totalAmount, avgFat: dailyAvgFat.toFixed(2) },
+        financials: {
+          deductions,
+          total_received: Number(payment.total_received) || 0,
+          netAmount,
+        },
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Farmer-wise collection report fetched successfully',
+      filters: { dairy_id, from, to, farmer_id: farmer_id || 'All' },
+      farmers: farmersData,
+    });
+
+  } catch (err) {
+    console.error('Error fetching farmer-wise collection report:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: err.message
+    });
+  }
+}
+
 module.exports = {
   getCollectionsReport,
   getVLCDifferenceReport,
   getFarmerRemainingBalances,
-  getVLCCommissionReport
+  getVLCCommissionReport,
+  getFarmerWiseCollectionReport
 };

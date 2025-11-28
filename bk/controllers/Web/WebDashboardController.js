@@ -59,6 +59,39 @@ async function getCollectionsSummary(req, res) {
   }
   try {
     const results = [];
+    const graphData = [];
+    
+    // Calculate last 7 days including current date
+    const currentDate = new Date(date);
+    for (let i = 6; i >= 0; i--) {
+      const targetDate = new Date(currentDate);
+      targetDate.setDate(currentDate.getDate() - i);
+      const dateStr = targetDate.toISOString().split('T')[0];
+      
+      let dayQuery = `
+        SELECT SUM(quantity) AS total_quantity
+        FROM collections
+        WHERE DATE(created_at) = ?
+      `;
+      const dayParams = [dateStr];
+      
+      if (branches.length > 0) {
+        dayQuery += ` AND dairy_id IN (${branches.map(() => '?').join(',')})`;
+        dayParams.push(...branches);
+      }
+      
+      if (shift !== 'All') {
+        dayQuery += ` AND shift = ?`;
+        dayParams.push(shift);
+      }
+      
+      const [dayRows] = await db.execute(dayQuery, dayParams);
+      graphData.push({
+        date: dateStr,
+        quantity: parseFloat(dayRows[0].total_quantity) || 0
+      });
+    }
+    
     for (const dairy_id of branches) {
       let query = `
         SELECT 
@@ -94,7 +127,8 @@ async function getCollectionsSummary(req, res) {
     }
     return res.status(200).json({ 
       success: true,
-      data: results
+      data: results,
+      graph: graphData
     });
   } catch (err) {
     console.error('Error fetching collections summary:', err);

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createVLCCommission, createVLCTS, upsertBill, getBillDetails } = require('../../controllers/Web/WebBillingController');
+const { createVLCCommission, createVLCTS, upsertBill, getBillDetails, updateFarmerBillWeb } = require('../../controllers/Web/WebBillingController');
 
 // POST /api/web/billing/vlc-commission
 router.post('/vlc-commission', createVLCCommission);
@@ -13,5 +13,8 @@ router.post('/upsert-bill', upsertBill);
 
 // GET /api/web/billing/bill-details?dairy_id=1&period_start=2025-11-01&period_end=2025-11-10
 router.get('/bill-details', getBillDetails);
+
+// PUT /api/web/billing/update-farmer-bill
+router.put('/update-farmer-bill', updateFarmerBillWeb);
 
 module.exports = router;

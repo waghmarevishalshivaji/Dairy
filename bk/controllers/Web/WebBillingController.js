@@ -250,4 +250,102 @@ async function getBillDetails(req, res) {
   }
 }
 
-module.exports = { createVLCCommission, createVLCTS, upsertBill, getBillDetails };
+// Update farmer bill for web (farmer deduction page)
+async function updateFarmerBillWeb(req, res) {
+  try {
+    const { 
+      farmer_id, 
+      dairy_id, 
+      period_start, 
+      period_end, 
+      milk_total, 
+      advance_total, 
+      cattlefeed_total,
+      other1_total,
+      other2_total,
+      received_total, 
+      net_payable,
+      advance_remaining,
+      cattlefeed_remaining,
+      other1_remaining,
+      other2_remaining
+    } = req.body;
+
+    if (!farmer_id || !dairy_id) {
+      return res.status(400).json({ success: false, message: "farmer_id and dairy_id are required" });
+    }
+
+    if (!period_start || !period_end) {
+      return res.status(400).json({ success: false, message: "period_start and period_end are required" });
+    }
+
+    // Check if bill exists for this farmer, dairy, and period
+    const [existing] = await db.execute(
+      `SELECT * FROM bills 
+       WHERE farmer_id=? AND dairy_id=? AND period_start=? AND period_end=?
+       ORDER BY id DESC LIMIT 1`,
+      [farmer_id, dairy_id, period_start, period_end]
+    );
+
+    const finalNet = net_payable || 
+      (Number(milk_total) - Number(advance_total || 0) - Number(cattlefeed_total || 0) - 
+       Number(other1_total || 0) - Number(other2_total || 0) + Number(received_total || 0));
+
+    if (existing.length > 0) {
+      // Update existing bill
+      await db.execute(
+        `UPDATE bills 
+         SET milk_total=?, advance_total=?, cattlefeed_total=?, other1_total=?, other2_total=?, 
+             received_total=?, net_payable=?, 
+             advance_remaining=?, cattlefeed_remaining=?, other1_remaining=?, other2_remaining=?
+         WHERE id=?`,
+        [
+          Number(milk_total) || 0,
+          Number(advance_total) || 0,
+          Number(cattlefeed_total) || 0,
+          Number(other1_total) || 0,
+          Number(other2_total) || 0,
+          Number(received_total) || 0,
+          finalNet,
+          Number(advance_remaining) || 0,
+          Number(cattlefeed_remaining) || 0,
+          Number(other1_remaining) || 0,
+          Number(other2_remaining) || 0,
+          existing[0].id
+        ]
+      );
+      return res.json({ success: true, message: "Bill updated", bill_id: existing[0].id });
+    } else {
+      // Insert new bill
+      const [result] = await db.execute(
+        `INSERT INTO bills (
+          farmer_id, dairy_id, period_start, period_end, 
+          milk_total, advance_total, cattlefeed_total, other1_total, other2_total,
+          received_total, net_payable, 
+          advance_remaining, cattlefeed_remaining, other1_remaining, other2_remaining,
+          status, is_finalized
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)`,
+        [
+          farmer_id, dairy_id, period_start, period_end,
+          Number(milk_total) || 0,
+          Number(advance_total) || 0,
+          Number(cattlefeed_total) || 0,
+          Number(other1_total) || 0,
+          Number(other2_total) || 0,
+          Number(received_total) || 0,
+          finalNet,
+          Number(advance_remaining) || 0,
+          Number(cattlefeed_remaining) || 0,
+          Number(other1_remaining) || 0,
+          Number(other2_remaining) || 0
+        ]
+      );
+      return res.json({ success: true, message: "Bill created", bill_id: result.insertId });
+    }
+  } catch (err) {
+    console.error('Error updating farmer bill:', err);
+    return res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+}
+
+module.exports = { createVLCCommission, createVLCTS, upsertBill, getBillDetails, updateFarmerBillWeb };

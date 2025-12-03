@@ -477,7 +477,7 @@ async function getpayment(req, res) {
   const year = today.getFullYear();
 
   try {
-    let query = 'SELECT id, DATE(date) as date, dairy_id, farmer_id, farmer_name, payment_type, amount_taken, received, descriptions, status FROM farmer_payments';
+    let query = 'SELECT id, DATE(CONVERT_TZ(date, "+00:00", "+05:30")) as date, dairy_id, farmer_id, farmer_name, payment_type, amount_taken, received, descriptions, status FROM farmer_payments';
     const conditions = [];
     const params = [];
 

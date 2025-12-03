@@ -204,7 +204,8 @@ CREATE TABLE web_users (
   temp_pw VARCHAR(10) NOT NULL,
   password VARCHAR(255) DEFAULT NULL,
   mobile_number VARCHAR(20) NOT NULL,
-  branches JSON DEFAULT NULL
+  branches JSON DEFAULT NULL,
+  deduction_priority JSON DEFAULT NULL
 );
 
 DROP TABLE IF EXISTS `vlc_collection_entry`;

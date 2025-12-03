@@ -92,4 +92,41 @@ async function updateBranches(req, res) {
   }
 }
 
-module.exports = { createWebUser, loginWebUser, setPassword, updateBranches };
+// Get deduction priority for user
+async function getPriority(req, res) {
+  const { userId } = req.params;
+  try {
+    const [rows] = await db.execute('SELECT deduction_priority FROM web_users WHERE id = ?', [userId]);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    let priority = rows[0].deduction_priority;
+    if (!priority) {
+      priority = ["advance", "cattleFeed", "other1", "other2"];
+    } else if (typeof priority === 'string') {
+      priority = JSON.parse(priority);
+    }
+    return res.status(200).json({ success: true, data: priority });
+  } catch (err) {
+    console.error('Error getting priority:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+}
+
+// Update deduction priority for user
+async function updatePriority(req, res) {
+  const { userId, priority } = req.body;
+  if (!userId || !priority || !Array.isArray(priority)) {
+    return res.status(400).json({ success: false, message: 'User ID and priority array are required' });
+  }
+  try {
+    const priorityJson = JSON.stringify(priority);
+    await db.execute('UPDATE web_users SET deduction_priority = ? WHERE id = ?', [priorityJson, userId]);
+    return res.status(200).json({ success: true, message: 'Priority updated successfully' });
+  } catch (err) {
+    console.error('Error updating priority:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+}
+
+module.exports = { createWebUser, loginWebUser, setPassword, updateBranches, getPriority, updatePriority };

@@ -519,7 +519,7 @@ async function getpayment(req, res) {
       stDate = startDate.trim()
       endDate = endDate.trim()
       if (startDate && endDate) {
-        conditions.push('DATE(date) BETWEEN ? AND ?');
+        conditions.push('DATE(CONVERT_TZ(date, "+00:00", "+05:30")) BETWEEN ? AND ?');
         params.push(startDate, endDate);
       }
     }
@@ -529,13 +529,13 @@ async function getpayment(req, res) {
     if (datefrom && dateto) {
       stDate = datefrom.trim()
       endDate = dateto.trim()
-      conditions.push('DATE(date) BETWEEN ? AND ?');
+      conditions.push('DATE(CONVERT_TZ(date, "+00:00", "+05:30")) BETWEEN ? AND ?');
       params.push(datefrom, dateto);
     } else if (datefrom) {
-      conditions.push('DATE(date) >= ?');
+      conditions.push('DATE(CONVERT_TZ(date, "+00:00", "+05:30")) >= ?');
       params.push(datefrom);
     } else if (dateto) {
-      conditions.push('DATE(date) <= ?');
+      conditions.push('DATE(CONVERT_TZ(date, "+00:00", "+05:30")) <= ?');
       params.push(dateto);
     }
 

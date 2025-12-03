@@ -477,7 +477,7 @@ async function getpayment(req, res) {
   const year = today.getFullYear();
 
   try {
-    let query = 'SELECT * FROM farmer_payments';
+    let query = 'SELECT id, DATE(date) as date, dairy_id, farmer_id, farmer_name, payment_type, amount_taken, received, descriptions, status FROM farmer_payments';
     const conditions = [];
     const params = [];
 
@@ -519,7 +519,7 @@ async function getpayment(req, res) {
       stDate = startDate.trim()
       endDate = endDate.trim()
       if (startDate && endDate) {
-        conditions.push('DATE(CONVERT_TZ(date, "+00:00", "+05:30")) BETWEEN ? AND ?');
+        conditions.push('DATE(date) BETWEEN ? AND ?');
         params.push(startDate, endDate);
       }
     }
@@ -529,13 +529,15 @@ async function getpayment(req, res) {
     if (datefrom && dateto) {
       stDate = datefrom.trim()
       endDate = dateto.trim()
-      conditions.push('DATE(CONVERT_TZ(date, "+00:00", "+05:30")) BETWEEN ? AND ?');
+      conditions.push('DATE(date) BETWEEN ? AND ?');
       params.push(datefrom, dateto);
     } else if (datefrom) {
-      conditions.push('DATE(CONVERT_TZ(date, "+00:00", "+05:30")) >= ?');
+      stDate = datefrom.trim()
+      conditions.push('DATE(date) = ?');
       params.push(datefrom);
     } else if (dateto) {
-      conditions.push('DATE(CONVERT_TZ(date, "+00:00", "+05:30")) <= ?');
+      endDate = dateto.trim()
+      conditions.push('DATE(date) = ?');
       params.push(dateto);
     }
 

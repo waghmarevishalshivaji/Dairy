@@ -477,7 +477,7 @@ async function getpayment(req, res) {
   const year = today.getFullYear();
 
   try {
-    let query = 'SELECT id, DATE(CONVERT_TZ(date, "+00:00", "+05:30")) as date, dairy_id, farmer_id, farmer_name, payment_type, amount_taken, received, descriptions, status FROM farmer_payments';
+    let query = 'SELECT id, date, dairy_id, farmer_id, farmer_name, payment_type, amount_taken, received, descriptions, status FROM farmer_payments';
     const conditions = [];
     const params = [];
 
@@ -555,12 +555,6 @@ async function getpayment(req, res) {
       return res.status(200).json({ success: true, message: 'No payments found', data: [] });
     }
 
-    // Format date to YYYY-MM-DD only
-    const formattedRows = rows.map(row => ({
-      ...row,
-      date: row.date instanceof Date ? row.date.toISOString().split('T')[0] : row.date
-    }));
-
     res.status(200).json({
       startDate: params[1],
       endDate: params[2],
@@ -568,7 +562,7 @@ async function getpayment(req, res) {
       sum : rows.reduce((acc, curr) => acc + curr.amount_taken, 0),
       success: true,
       message: 'Success',
-      data: formattedRows
+      data: rows
     });
 
   } catch (err) {

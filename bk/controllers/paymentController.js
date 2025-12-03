@@ -555,6 +555,16 @@ async function getpayment(req, res) {
       return res.status(200).json({ success: true, message: 'No payments found', data: [] });
     }
 
+    // Format date to IST timezone and remove time
+    const formattedRows = rows.map(row => {
+      const utcDate = new Date(row.date);
+      const istDate = new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000)); // Add 5:30 hours
+      return {
+        ...row,
+        date: istDate.toISOString().split('T')[0]
+      };
+    });
+
     res.status(200).json({
       startDate: params[1],
       endDate: params[2],
@@ -562,7 +572,7 @@ async function getpayment(req, res) {
       sum : rows.reduce((acc, curr) => acc + curr.amount_taken, 0),
       success: true,
       message: 'Success',
-      data: rows
+      data: formattedRows
     });
 
   } catch (err) {

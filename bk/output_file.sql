@@ -269,3 +269,11 @@ CREATE TABLE settings (
   language VARCHAR(50) DEFAULT 'English',
   report_language VARCHAR(50) DEFAULT 'English'
 );
+
+CREATE TABLE cattlefeed_stock (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  dairy_id VARCHAR(50) NOT NULL,
+  amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+  stock INT NOT NULL DEFAULT 0,
+  date DATE NOT NULL DEFAULT (CURRENT_DATE)
+);
